@@ -61,4 +61,6 @@ struct ContentView: View {
   }
   .environment(\.adLoader, CustomAdLoader())
   ```
+
+- [] Improve performance
   
