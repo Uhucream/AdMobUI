@@ -33,6 +33,21 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     internal func updateUIView(_ nativeAdView: _UINativeAdView, context: Context) {
         guard let nativeAd else { return }
 
+        let currentElementTypes: Set<NativeAdChildViewType> = Set(elementFrames.map(\.elementType))
+        let staleElementTypes: Set<NativeAdChildViewType> = Set(nativeAdView.lastAppliedElementFrames.keys)
+            .subtracting(currentElementTypes)
+
+        // Remove elements no longer present in the current SwiftUI layout, so a stale
+        // tracking view doesn't keep sitting at its last known position/size and
+        // doesn't keep being registered as a clickable/trackable asset on the NativeAd.
+        staleElementTypes.forEach { type in
+            removeElementView(for: type, from: nativeAdView)
+
+            NSLayoutConstraint.deactivate(nativeAdView.elementFittingConstraints[type] ?? [])
+            nativeAdView.elementFittingConstraints[type] = nil
+            nativeAdView.lastAppliedElementFrames[type] = nil
+        }
+
         // Update and add each element view
         elementFrames.forEach { elementFrame in
             let type: NativeAdChildViewType = elementFrame.elementType
@@ -170,6 +185,56 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
 
         // Set the NativeAd
         nativeAdView.nativeAd = nativeAd
+    }
+}
+
+extension _RepresentedUINativeAdView {
+    private func removeElementView(for type: NativeAdChildViewType, from nativeAdView: _UINativeAdView) {
+        switch type {
+        case .headline:
+            nativeAdView.headlineView?.removeFromSuperview()
+            nativeAdView.headlineView = nil
+
+        case .callToAction:
+            nativeAdView.callToActionView?.removeFromSuperview()
+            nativeAdView.callToActionView = nil
+
+        case .icon:
+            nativeAdView.iconView?.removeFromSuperview()
+            nativeAdView.iconView = nil
+
+        case .body:
+            nativeAdView.bodyView?.removeFromSuperview()
+            nativeAdView.bodyView = nil
+
+        case .store:
+            nativeAdView.storeView?.removeFromSuperview()
+            nativeAdView.storeView = nil
+
+        case .price:
+            nativeAdView.priceView?.removeFromSuperview()
+            nativeAdView.priceView = nil
+
+        case .image:
+            nativeAdView.imageView?.removeFromSuperview()
+            nativeAdView.imageView = nil
+
+        case .starRating:
+            nativeAdView.starRatingView?.removeFromSuperview()
+            nativeAdView.starRatingView = nil
+
+        case .advertiser:
+            nativeAdView.advertiserView?.removeFromSuperview()
+            nativeAdView.advertiserView = nil
+
+        case .media:
+            nativeAdView.mediaView?.removeFromSuperview()
+            nativeAdView.mediaView = nil
+
+        case .adChoices:
+            nativeAdView.adChoicesView?.removeFromSuperview()
+            nativeAdView.adChoicesView = nil
+        }
     }
 }
 
