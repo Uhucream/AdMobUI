@@ -9,10 +9,12 @@
 import GoogleMobileAds
 import SwiftUI
 
-internal struct ElementFrame: Equatable {
+internal struct ElementFrame {
     let elementType: NativeAdChildViewType
     let frame: CGRect
 }
+
+extension ElementFrame: Equatable {}
 
 internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     typealias UIViewType = _UINativeAdView
