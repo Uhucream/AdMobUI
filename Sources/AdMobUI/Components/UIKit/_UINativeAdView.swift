@@ -10,6 +10,9 @@ import GoogleMobileAds
 import SwiftUI
 
 internal class _UINativeAdView: NativeAdView {
+    internal var hasActivatedSuperviewFittingConstraints: Bool = false
+    internal var lastAppliedElementFrames: [NativeAdChildViewType: CGRect] = [:]
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         self.translatesAutoresizingMaskIntoConstraints = false

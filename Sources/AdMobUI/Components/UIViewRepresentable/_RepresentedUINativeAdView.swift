@@ -9,7 +9,7 @@
 import GoogleMobileAds
 import SwiftUI
 
-internal struct ElementFrame {
+internal struct ElementFrame: Equatable {
     let elementType: NativeAdChildViewType
     let frame: CGRect
 }
@@ -32,13 +32,15 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
         guard let nativeAd else { return }
 
         // 親Viewにフィットする制約は最初の1回だけ追加
-        if let superview = nativeAdView.superview {
+        if !nativeAdView.hasActivatedSuperviewFittingConstraints, let superview = nativeAdView.superview {
             NSLayoutConstraint.activate([
                 nativeAdView.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
                 nativeAdView.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
                 nativeAdView.topAnchor.constraint(equalTo: superview.topAnchor),
                 nativeAdView.bottomAnchor.constraint(equalTo: superview.bottomAnchor),
             ])
+
+            nativeAdView.hasActivatedSuperviewFittingConstraints = true
         }
 
         // 各要素ビュー更新・追加
@@ -150,9 +152,11 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                 }
             }()
 
-            // 制約は毎回更新
             view.translatesAutoresizingMaskIntoConstraints = false
             view.isUserInteractionEnabled = false
+
+            // フレームが前回から変化していない場合は制約を更新しない
+            guard nativeAdView.lastAppliedElementFrames[type] != frame else { return }
 
             NSLayoutConstraint.deactivate(view.constraints)
             NSLayoutConstraint.activate([
@@ -163,9 +167,28 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                 view.widthAnchor.constraint(equalToConstant: frame.width),
                 view.heightAnchor.constraint(equalToConstant: frame.height),
             ])
+
+            nativeAdView.lastAppliedElementFrames[type] = frame
         }
 
         // NativeAd を設定
         nativeAdView.nativeAd = nativeAd
+    }
+}
+
+extension _RepresentedUINativeAdView: Equatable {
+    internal static func == (lhs: _RepresentedUINativeAdView, rhs: _RepresentedUINativeAdView) -> Bool {
+        guard lhs.elementFrames == rhs.elementFrames else { return false }
+
+        switch (lhs.nativeAd, rhs.nativeAd) {
+        case (nil, nil):
+            return true
+
+        case let (lhsNativeAd?, rhsNativeAd?):
+            return lhsNativeAd === rhsNativeAd
+
+        default:
+            return false
+        }
     }
 }

@@ -31,7 +31,7 @@ public struct NativeAdvertisement<AdContent: View>: View {
     }
 
     public var body: some View {
-        let loadedAd = nativeAdLoader.loadedAd
+        let loadedAd = nativeAdLoader.nativeAdvertisementPhase.nativeAd
 
         adContent(nativeAdLoader.nativeAdvertisementPhase)
             .overlayPreferenceValue(TypedAnchorBoundsPreferenceKey.self, alignment: .center) { namedAnchors in
@@ -47,6 +47,7 @@ public struct NativeAdvertisement<AdContent: View>: View {
                         nativeAd: loadedAd,
                         elementFrames: elementFrames
                     )
+                    .equatable()
                     .frame(width: overlayGeometry.size.width, height: overlayGeometry.size.height)
                 }
             }
