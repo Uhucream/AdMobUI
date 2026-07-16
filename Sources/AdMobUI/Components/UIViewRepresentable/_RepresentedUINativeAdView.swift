@@ -148,16 +148,23 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             // Skip updating the constraints if the frame hasn't changed since the last time
             guard nativeAdView.lastAppliedElementFrames[type] != frame else { return }
 
-            NSLayoutConstraint.deactivate(view.constraints)
-            NSLayoutConstraint.activate([
+            // view.constraints only holds constraints owned by view itself (e.g. width/height);
+            // the leading/top constraints below are owned by their nearest common ancestor
+            // (nativeAdView), so the constraints we installed last time must be tracked explicitly.
+            NSLayoutConstraint.deactivate(nativeAdView.elementFittingConstraints[type] ?? [])
+
+            let fittingConstraints: [NSLayoutConstraint] = [
                 view.leadingAnchor.constraint(
                     equalTo: nativeAdView.leadingAnchor, constant: frame.origin.x),
                 view.topAnchor.constraint(
                     equalTo: nativeAdView.topAnchor, constant: frame.origin.y),
                 view.widthAnchor.constraint(equalToConstant: frame.width),
                 view.heightAnchor.constraint(equalToConstant: frame.height),
-            ])
+            ]
 
+            NSLayoutConstraint.activate(fittingConstraints)
+
+            nativeAdView.elementFittingConstraints[type] = fittingConstraints
             nativeAdView.lastAppliedElementFrames[type] = frame
         }
 
