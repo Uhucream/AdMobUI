@@ -31,7 +31,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     internal func updateUIView(_ nativeAdView: _UINativeAdView, context: Context) {
         guard let nativeAd else { return }
 
-        // 親Viewにフィットする制約は最初の1回だけ追加
+        // Add the constraints that fit the superview only once
         if !nativeAdView.hasActivatedSuperviewFittingConstraints, let superview = nativeAdView.superview {
             NSLayoutConstraint.activate([
                 nativeAdView.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
@@ -43,7 +43,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             nativeAdView.hasActivatedSuperviewFittingConstraints = true
         }
 
-        // 各要素ビュー更新・追加
+        // Update and add each element view
         elementFrames.forEach { elementFrame in
             let type: NativeAdChildViewType = elementFrame.elementType
             let frame: CGRect = elementFrame.frame
@@ -155,7 +155,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             view.translatesAutoresizingMaskIntoConstraints = false
             view.isUserInteractionEnabled = false
 
-            // フレームが前回から変化していない場合は制約を更新しない
+            // Skip updating the constraints if the frame hasn't changed since the last time
             guard nativeAdView.lastAppliedElementFrames[type] != frame else { return }
 
             NSLayoutConstraint.deactivate(view.constraints)
@@ -171,7 +171,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             nativeAdView.lastAppliedElementFrames[type] = frame
         }
 
-        // NativeAd を設定
+        // Set the NativeAd
         nativeAdView.nativeAd = nativeAd
     }
 }
