@@ -27,7 +27,7 @@ internal struct _RepresentedAdMobMedia: UIViewRepresentable {
         mediaView.translatesAutoresizingMaskIntoConstraints = true
         mediaView.backgroundColor = .clear
 
-        mediaView.autoresizingMask = [.flexibleWidth, .flexibleHeight]  // ← SwiftUIからサイズを受ける
+        mediaView.autoresizingMask = [.flexibleWidth, .flexibleHeight]  // ← receives its size from SwiftUI
         mediaView.frame = containerView.bounds
 
         containerView.addSubview(mediaView)
