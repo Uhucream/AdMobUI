@@ -33,18 +33,6 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     internal func updateUIView(_ nativeAdView: _UINativeAdView, context: Context) {
         guard let nativeAd else { return }
 
-        // Add the constraints that fit the superview only once
-        if !nativeAdView.hasActivatedSuperviewFittingConstraints, let superview = nativeAdView.superview {
-            NSLayoutConstraint.activate([
-                nativeAdView.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
-                nativeAdView.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
-                nativeAdView.topAnchor.constraint(equalTo: superview.topAnchor),
-                nativeAdView.bottomAnchor.constraint(equalTo: superview.bottomAnchor),
-            ])
-
-            nativeAdView.hasActivatedSuperviewFittingConstraints = true
-        }
-
         // Update and add each element view
         elementFrames.forEach { elementFrame in
             let type: NativeAdChildViewType = elementFrame.elementType
