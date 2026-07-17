@@ -146,17 +146,25 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return advertiserView
                     }
                 case .media:
-                    if let mediaView = nativeAdView.mediaView {
-                        return mediaView
+                    let mediaView: MediaView
+
+                    if let existingMediaView = nativeAdView.mediaView {
+                        mediaView = existingMediaView
                     } else {
-                        let mediaView = MediaView()
+                        mediaView = MediaView()
                         // GADMediaView needs user interaction enabled to drive its own
                         // controls (e.g. the mute button).
                         mediaView.isUserInteractionEnabled = true
                         nativeAdView.mediaView = mediaView
                         nativeAdView.addSubview(mediaView)
-                        return mediaView
                     }
+
+                    // This tracking view is the single MediaView that both renders the
+                    // media asset and is registered with the SDK; AdvertisementMedia only
+                    // reserves layout space for it.
+                    mediaView.mediaContent = nativeAd.mediaContent
+
+                    return mediaView
                 case .adChoices:
                     if let adChoicesView = nativeAdView.adChoicesView {
                         return adChoicesView

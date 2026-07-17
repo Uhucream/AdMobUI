@@ -10,14 +10,28 @@ import GoogleMobileAds
 import SwiftUI
 
 public struct AdvertisementMedia: View {
-    private var mediaContent: MediaContent?
+    private let mediaContent: MediaContent
 
-    public init(mediaContent: MediaContent? = nil) {
+    // nil when the ad has no known aspect ratio (mediaContent.aspectRatio is 0);
+    // aspectRatio(_:contentMode:) then leaves the size unconstrained.
+    private var resolvedAspectRatio: CGFloat? {
+        let aspectRatio: CGFloat = mediaContent.aspectRatio
+
+        guard aspectRatio > 0 else {
+            return nil
+        }
+
+        return aspectRatio
+    }
+
+    public init(mediaContent: MediaContent) {
         self.mediaContent = mediaContent
     }
 
     public var body: some View {
-        _RepresentedAdMobMedia(mediaContent: mediaContent)
+        Rectangle()
+            .fill(.clear)
+            .aspectRatio(resolvedAspectRatio, contentMode: .fit)
             .nativeAdElement(.media)
     }
 }
