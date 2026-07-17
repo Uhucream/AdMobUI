@@ -159,9 +159,8 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         nativeAdView.addSubview(mediaView)
                     }
 
-                    // This tracking view is the single MediaView that both renders the
-                    // media asset and is registered with the SDK; AdvertisementMedia only
-                    // reserves layout space for it.
+                    // Unlike the other asset views, the media view renders its content
+                    // itself, so it needs the media content assigned.
                     mediaView.mediaContent = nativeAd.mediaContent
 
                     return mediaView

@@ -29,6 +29,9 @@ public struct AdvertisementMedia: View {
     }
 
     public var body: some View {
+        // A transparent placeholder that only reserves correctly-sized layout space and
+        // marks the media slot. The media itself is rendered by the MediaView that
+        // _RepresentedUINativeAdView registers as the overlay ad view's mediaView.
         Rectangle()
             .fill(.clear)
             .aspectRatio(resolvedAspectRatio, contentMode: .fit)
