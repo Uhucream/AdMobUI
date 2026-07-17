@@ -1,0 +1,67 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_16.2.app
+
+      - name: Show environment
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve package dependencies
+        run: xcodebuild -resolvePackageDependencies -scheme AdMobUI
+
+      - name: Detect test targets
+        id: detect_tests
+        run: |
+          if grep -rqE '\.testTarget\(' Package.swift; then
+            echo "has_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.detect_tests.outputs.has_tests != 'true'
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -scheme AdMobUI \
+            -destination 'generic/platform=iOS Simulator'
+
+      - name: Build and Test
+        if: steps.detect_tests.outputs.has_tests == 'true'
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme AdMobUI \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
