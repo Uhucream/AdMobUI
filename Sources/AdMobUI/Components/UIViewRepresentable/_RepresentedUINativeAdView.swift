@@ -158,7 +158,11 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             }()
 
             view.translatesAutoresizingMaskIntoConstraints = false
-            view.isUserInteractionEnabled = false
+
+            // GADMediaView needs user interaction enabled to drive its own controls
+            // (e.g. the mute button); every other tracking view stays non-interactive
+            // so taps pass through to the SwiftUI content rendered underneath.
+            view.isUserInteractionEnabled = type == .media
 
             // Skip updating the constraints if the frame hasn't changed since the last time
             guard nativeAdView.lastAppliedElementFrames[type] != frame else { return }
