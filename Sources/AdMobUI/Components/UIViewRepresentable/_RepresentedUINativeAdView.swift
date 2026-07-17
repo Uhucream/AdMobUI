@@ -60,6 +60,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return headlineView
                     } else {
                         let headlineView = UIView()
+                        headlineView.isUserInteractionEnabled = false
                         nativeAdView.headlineView = headlineView
                         nativeAdView.addSubview(headlineView)
                         return headlineView
@@ -69,6 +70,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return callToActionView
                     } else {
                         let callToActionView = UIView()
+                        callToActionView.isUserInteractionEnabled = false
                         nativeAdView.callToActionView = callToActionView
                         nativeAdView.addSubview(callToActionView)
                         return callToActionView
@@ -78,6 +80,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return iconView
                     } else {
                         let iconView = UIView()
+                        iconView.isUserInteractionEnabled = false
                         nativeAdView.iconView = iconView
                         nativeAdView.addSubview(iconView)
                         return iconView
@@ -87,6 +90,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return bodyView
                     } else {
                         let bodyView = UIView()
+                        bodyView.isUserInteractionEnabled = false
                         nativeAdView.bodyView = bodyView
                         nativeAdView.addSubview(bodyView)
                         return bodyView
@@ -96,6 +100,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return storeView
                     } else {
                         let storeView = UIView()
+                        storeView.isUserInteractionEnabled = false
                         nativeAdView.storeView = storeView
                         nativeAdView.addSubview(storeView)
                         return storeView
@@ -105,6 +110,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return priceView
                     } else {
                         let priceView = UILabel()
+                        priceView.isUserInteractionEnabled = false
                         nativeAdView.priceView = priceView
                         nativeAdView.addSubview(priceView)
                         return priceView
@@ -114,6 +120,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return imageView
                     } else {
                         let imageView = UIImageView()
+                        imageView.isUserInteractionEnabled = false
                         nativeAdView.imageView = imageView
                         nativeAdView.addSubview(imageView)
                         return imageView
@@ -123,6 +130,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return starRatingView
                     } else {
                         let starRatingView = UIImageView()
+                        starRatingView.isUserInteractionEnabled = false
                         nativeAdView.starRatingView = starRatingView
                         nativeAdView.addSubview(starRatingView)
                         return starRatingView
@@ -132,6 +140,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return advertiserView
                     } else {
                         let advertiserView = UILabel()
+                        advertiserView.isUserInteractionEnabled = false
                         nativeAdView.advertiserView = advertiserView
                         nativeAdView.addSubview(advertiserView)
                         return advertiserView
@@ -141,6 +150,9 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return mediaView
                     } else {
                         let mediaView = MediaView()
+                        // GADMediaView needs user interaction enabled to drive its own
+                        // controls (e.g. the mute button).
+                        mediaView.isUserInteractionEnabled = true
                         nativeAdView.mediaView = mediaView
                         nativeAdView.addSubview(mediaView)
                         return mediaView
@@ -150,6 +162,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return adChoicesView
                     } else {
                         let adChoicesView = AdChoicesView()
+                        adChoicesView.isUserInteractionEnabled = false
                         nativeAdView.adChoicesView = adChoicesView
                         nativeAdView.addSubview(adChoicesView)
                         return adChoicesView
@@ -158,11 +171,6 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             }()
 
             view.translatesAutoresizingMaskIntoConstraints = false
-
-            // GADMediaView needs user interaction enabled to drive its own controls
-            // (e.g. the mute button); every other tracking view stays non-interactive
-            // so taps pass through to the SwiftUI content rendered underneath.
-            view.isUserInteractionEnabled = type == .media
 
             // Skip updating the constraints if the frame hasn't changed since the last time
             guard nativeAdView.lastAppliedElementFrames[type] != frame else { return }
