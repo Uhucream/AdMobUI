@@ -14,6 +14,8 @@ internal struct ElementFrame {
     let frame: CGRect
 }
 
+extension ElementFrame: Equatable {}
+
 internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     typealias UIViewType = _UINativeAdView
 
@@ -31,17 +33,22 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     internal func updateUIView(_ nativeAdView: _UINativeAdView, context: Context) {
         guard let nativeAd else { return }
 
-        // 親Viewにフィットする制約は最初の1回だけ追加
-        if let superview = nativeAdView.superview {
-            NSLayoutConstraint.activate([
-                nativeAdView.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
-                nativeAdView.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
-                nativeAdView.topAnchor.constraint(equalTo: superview.topAnchor),
-                nativeAdView.bottomAnchor.constraint(equalTo: superview.bottomAnchor),
-            ])
+        let currentElementTypes: Set<NativeAdChildViewType> = Set(elementFrames.map(\.elementType))
+        let staleElementTypes: Set<NativeAdChildViewType> = Set(nativeAdView.lastAppliedElementFrames.keys)
+            .subtracting(currentElementTypes)
+
+        // Remove elements no longer present in the current SwiftUI layout, so a stale
+        // tracking view doesn't keep sitting at its last known position/size and
+        // doesn't keep being registered as a clickable/trackable asset on the NativeAd.
+        staleElementTypes.forEach { type in
+            removeElementView(for: type, from: nativeAdView)
+
+            NSLayoutConstraint.deactivate(nativeAdView.elementFittingConstraints[type] ?? [])
+            nativeAdView.elementFittingConstraints[type] = nil
+            nativeAdView.lastAppliedElementFrames[type] = nil
         }
 
-        // 各要素ビュー更新・追加
+        // Update and add each element view
         elementFrames.forEach { elementFrame in
             let type: NativeAdChildViewType = elementFrame.elementType
             let frame: CGRect = elementFrame.frame
@@ -53,6 +60,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return headlineView
                     } else {
                         let headlineView = UIView()
+                        headlineView.isUserInteractionEnabled = false
                         nativeAdView.headlineView = headlineView
                         nativeAdView.addSubview(headlineView)
                         return headlineView
@@ -62,6 +70,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return callToActionView
                     } else {
                         let callToActionView = UIView()
+                        callToActionView.isUserInteractionEnabled = false
                         nativeAdView.callToActionView = callToActionView
                         nativeAdView.addSubview(callToActionView)
                         return callToActionView
@@ -71,6 +80,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return iconView
                     } else {
                         let iconView = UIView()
+                        iconView.isUserInteractionEnabled = false
                         nativeAdView.iconView = iconView
                         nativeAdView.addSubview(iconView)
                         return iconView
@@ -80,6 +90,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return bodyView
                     } else {
                         let bodyView = UIView()
+                        bodyView.isUserInteractionEnabled = false
                         nativeAdView.bodyView = bodyView
                         nativeAdView.addSubview(bodyView)
                         return bodyView
@@ -89,6 +100,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return storeView
                     } else {
                         let storeView = UIView()
+                        storeView.isUserInteractionEnabled = false
                         nativeAdView.storeView = storeView
                         nativeAdView.addSubview(storeView)
                         return storeView
@@ -98,6 +110,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return priceView
                     } else {
                         let priceView = UILabel()
+                        priceView.isUserInteractionEnabled = false
                         nativeAdView.priceView = priceView
                         nativeAdView.addSubview(priceView)
                         return priceView
@@ -107,6 +120,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return imageView
                     } else {
                         let imageView = UIImageView()
+                        imageView.isUserInteractionEnabled = false
                         nativeAdView.imageView = imageView
                         nativeAdView.addSubview(imageView)
                         return imageView
@@ -116,6 +130,7 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return starRatingView
                     } else {
                         let starRatingView = UIImageView()
+                        starRatingView.isUserInteractionEnabled = false
                         nativeAdView.starRatingView = starRatingView
                         nativeAdView.addSubview(starRatingView)
                         return starRatingView
@@ -125,24 +140,36 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         return advertiserView
                     } else {
                         let advertiserView = UILabel()
+                        advertiserView.isUserInteractionEnabled = false
                         nativeAdView.advertiserView = advertiserView
                         nativeAdView.addSubview(advertiserView)
                         return advertiserView
                     }
                 case .media:
-                    if let mediaView = nativeAdView.mediaView {
-                        return mediaView
+                    let mediaView: MediaView
+
+                    if let existingMediaView = nativeAdView.mediaView {
+                        mediaView = existingMediaView
                     } else {
-                        let mediaView = MediaView()
+                        mediaView = MediaView()
+                        // GADMediaView needs user interaction enabled to drive its own
+                        // controls (e.g. the mute button).
+                        mediaView.isUserInteractionEnabled = true
                         nativeAdView.mediaView = mediaView
                         nativeAdView.addSubview(mediaView)
-                        return mediaView
                     }
+
+                    // Unlike the other asset views, the media view renders its content
+                    // itself, so it needs the media content assigned.
+                    mediaView.mediaContent = nativeAd.mediaContent
+
+                    return mediaView
                 case .adChoices:
                     if let adChoicesView = nativeAdView.adChoicesView {
                         return adChoicesView
                     } else {
                         let adChoicesView = AdChoicesView()
+                        adChoicesView.isUserInteractionEnabled = false
                         nativeAdView.adChoicesView = adChoicesView
                         nativeAdView.addSubview(adChoicesView)
                         return adChoicesView
@@ -150,22 +177,99 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                 }
             }()
 
-            // 制約は毎回更新
             view.translatesAutoresizingMaskIntoConstraints = false
-            view.isUserInteractionEnabled = false
 
-            NSLayoutConstraint.deactivate(view.constraints)
-            NSLayoutConstraint.activate([
+            // Skip updating the constraints if the frame hasn't changed since the last time
+            guard nativeAdView.lastAppliedElementFrames[type] != frame else { return }
+
+            // view.constraints only holds constraints owned by view itself (e.g. width/height);
+            // the leading/top constraints below are owned by their nearest common ancestor
+            // (nativeAdView), so the constraints we installed last time must be tracked explicitly.
+            NSLayoutConstraint.deactivate(nativeAdView.elementFittingConstraints[type] ?? [])
+
+            let fittingConstraints: [NSLayoutConstraint] = [
                 view.leadingAnchor.constraint(
                     equalTo: nativeAdView.leadingAnchor, constant: frame.origin.x),
                 view.topAnchor.constraint(
                     equalTo: nativeAdView.topAnchor, constant: frame.origin.y),
                 view.widthAnchor.constraint(equalToConstant: frame.width),
                 view.heightAnchor.constraint(equalToConstant: frame.height),
-            ])
+            ]
+
+            NSLayoutConstraint.activate(fittingConstraints)
+
+            nativeAdView.elementFittingConstraints[type] = fittingConstraints
+            nativeAdView.lastAppliedElementFrames[type] = frame
         }
 
-        // NativeAd を設定
+        // Set the NativeAd
         nativeAdView.nativeAd = nativeAd
+    }
+}
+
+extension _RepresentedUINativeAdView {
+    private func removeElementView(for type: NativeAdChildViewType, from nativeAdView: _UINativeAdView) {
+        switch type {
+        case .headline:
+            nativeAdView.headlineView?.removeFromSuperview()
+            nativeAdView.headlineView = nil
+
+        case .callToAction:
+            nativeAdView.callToActionView?.removeFromSuperview()
+            nativeAdView.callToActionView = nil
+
+        case .icon:
+            nativeAdView.iconView?.removeFromSuperview()
+            nativeAdView.iconView = nil
+
+        case .body:
+            nativeAdView.bodyView?.removeFromSuperview()
+            nativeAdView.bodyView = nil
+
+        case .store:
+            nativeAdView.storeView?.removeFromSuperview()
+            nativeAdView.storeView = nil
+
+        case .price:
+            nativeAdView.priceView?.removeFromSuperview()
+            nativeAdView.priceView = nil
+
+        case .image:
+            nativeAdView.imageView?.removeFromSuperview()
+            nativeAdView.imageView = nil
+
+        case .starRating:
+            nativeAdView.starRatingView?.removeFromSuperview()
+            nativeAdView.starRatingView = nil
+
+        case .advertiser:
+            nativeAdView.advertiserView?.removeFromSuperview()
+            nativeAdView.advertiserView = nil
+
+        case .media:
+            nativeAdView.mediaView?.removeFromSuperview()
+            nativeAdView.mediaView = nil
+
+        case .adChoices:
+            nativeAdView.adChoicesView?.removeFromSuperview()
+            nativeAdView.adChoicesView = nil
+        }
+    }
+}
+
+extension _RepresentedUINativeAdView: Equatable {
+    internal static func == (lhs: _RepresentedUINativeAdView, rhs: _RepresentedUINativeAdView) -> Bool {
+        guard lhs.elementFrames == rhs.elementFrames else { return false }
+
+        switch (lhs.nativeAd, rhs.nativeAd) {
+        case (nil, nil):
+            return true
+
+        case let (lhsNativeAd?, rhsNativeAd?):
+            return lhsNativeAd === rhsNativeAd
+
+        default:
+            return false
+        }
     }
 }

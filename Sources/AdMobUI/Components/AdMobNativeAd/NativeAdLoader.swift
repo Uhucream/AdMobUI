@@ -10,7 +10,6 @@ import Combine
 import GoogleMobileAds
 
 internal class NativeAdLoader: NSObject, ObservableObject {
-    @Published private(set) var loadedAd: NativeAd?
     @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty
 
     private let adLoader: AdLoader
@@ -37,7 +36,6 @@ extension NativeAdLoader {
 
 extension NativeAdLoader: NativeAdLoaderDelegate {
     func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
-        self.loadedAd = nativeAd
         self.nativeAdvertisementPhase = .success(nativeAd)
     }
 
