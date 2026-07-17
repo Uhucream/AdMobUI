@@ -10,7 +10,6 @@ import GoogleMobileAds
 import SwiftUI
 
 internal struct _RepresentedAdMobMedia: UIViewRepresentable {
-    //    typealias UIViewType = MediaView
     typealias UIViewType = UIView
 
     private let mediaContent: MediaContent?
@@ -24,11 +23,11 @@ internal struct _RepresentedAdMobMedia: UIViewRepresentable {
         containerView.translatesAutoresizingMaskIntoConstraints = true
         containerView.backgroundColor = .clear
 
-        let mediaView: UIViewType = .init()
+        let mediaView: MediaView = .init()
         mediaView.translatesAutoresizingMaskIntoConstraints = true
         mediaView.backgroundColor = .clear
 
-        mediaView.autoresizingMask = [.flexibleWidth, .flexibleHeight]  // ← SwiftUIからサイズを受ける
+        mediaView.autoresizingMask = [.flexibleWidth, .flexibleHeight]  // ← receives its size from SwiftUI
         mediaView.frame = containerView.bounds
 
         containerView.addSubview(mediaView)
