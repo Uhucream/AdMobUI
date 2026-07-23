@@ -88,5 +88,25 @@ These modifiers must be applied directly on `NativeAdvertisement`, before any st
 
 ## TODO
 
-- [ ] Improve performance
+- [ ] Improve performance for ad-dense feeds
+
+  Today each `NativeAdvertisement` owns its own loader and requests an ad in
+  `onAppear`. Inside a `List` / `LazyVStack`, cells are destroyed and recreated
+  as they scroll, so the loader is rebuilt and a fresh ad is requested every
+  time a cell scrolls back into view. Ad requests are billed and rate limited,
+  so a long scrolling feed can issue far more requests than it shows ads.
+
+  Direction:
+
+  - Introduce an ad pool/cache keyed by ad unit id that holds already-loaded
+    ads and hands them out to views, so scrolling reuses ads instead of
+    re-requesting them.
+  - Preload a batch in a single request with
+    `GADMultipleAdsAdLoaderOptions.numberOfAds` (up to 5 per request) to cut
+    round trips, rather than one request per cell.
+  - Let a view consume an ad from the shared pool instead of owning a loader.
+    This is a different, opt-in API surface from the per-view `request:` /
+    `options:` initializers (a shared loader implies a shared request), so it
+    should be designed as an additive layer that does not change the current
+    simple usage.
   
