@@ -22,6 +22,13 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     internal let nativeAd: NativeAd?
     internal let elementFrames: [ElementFrame]
 
+    internal let onTapAction: (() -> Void)?
+    internal let onSwipeGestureAction: (() -> Void)?
+    internal let onWillAppearAction: (() -> Void)?
+    internal let onWillDisappearAction: (() -> Void)?
+    internal let onDismissAction: (() -> Void)?
+    internal let onAdvertisementMutedAction: (() -> Void)?
+
     internal func makeUIView(context: Context) -> _UINativeAdView {
         let nativeAdView = _UINativeAdView()
         nativeAdView.backgroundColor = .clear
@@ -202,8 +209,82 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             nativeAdView.lastAppliedElementFrames[type] = frame
         }
 
+        // The NativeAd instance only exists after the async load completes, so this is the
+        // only point where its delegate can be wired. The event callbacks are already held
+        // by the Coordinator from makeCoordinator, so nothing else needs to be pushed here.
+        nativeAd.delegate = context.coordinator
+
         // Set the NativeAd
         nativeAdView.nativeAd = nativeAd
+    }
+
+    internal func makeCoordinator() -> Coordinator {
+        Coordinator(
+            onTapAction: onTapAction,
+            onSwipeGestureAction: onSwipeGestureAction,
+            onWillAppearAction: onWillAppearAction,
+            onWillDisappearAction: onWillDisappearAction,
+            onDismissAction: onDismissAction,
+            onAdvertisementMutedAction: onAdvertisementMutedAction
+        )
+    }
+}
+
+extension _RepresentedUINativeAdView {
+    internal final class Coordinator: NSObject {
+        private let onTapAction: (() -> Void)?
+        private let onSwipeGestureAction: (() -> Void)?
+        private let onWillAppearAction: (() -> Void)?
+        private let onWillDisappearAction: (() -> Void)?
+        private let onDismissAction: (() -> Void)?
+        private let onAdvertisementMutedAction: (() -> Void)?
+
+        init(
+            onTapAction: (() -> Void)?,
+            onSwipeGestureAction: (() -> Void)?,
+            onWillAppearAction: (() -> Void)?,
+            onWillDisappearAction: (() -> Void)?,
+            onDismissAction: (() -> Void)?,
+            onAdvertisementMutedAction: (() -> Void)?
+        ) {
+            self.onTapAction = onTapAction
+            self.onSwipeGestureAction = onSwipeGestureAction
+            self.onWillAppearAction = onWillAppearAction
+            self.onWillDisappearAction = onWillDisappearAction
+            self.onDismissAction = onDismissAction
+            self.onAdvertisementMutedAction = onAdvertisementMutedAction
+
+            super.init()
+        }
+    }
+}
+
+extension _RepresentedUINativeAdView.Coordinator: NativeAdDelegate {
+    // The callbacks are intentionally argument-less (() -> Void). The SDK passes the
+    // nativeAd so a single delegate can tell multiple ads apart, but here one ad maps to
+    // one delegate, so there is nothing to disambiguate. Do not add a NativeAd parameter.
+    func nativeAdDidRecordClick(_ nativeAd: NativeAd) {
+        onTapAction?()
+    }
+
+    func nativeAdDidRecordSwipeGestureClick(_ nativeAd: NativeAd) {
+        onSwipeGestureAction?()
+    }
+
+    func nativeAdWillPresentScreen(_ nativeAd: NativeAd) {
+        onWillAppearAction?()
+    }
+
+    func nativeAdWillDismissScreen(_ nativeAd: NativeAd) {
+        onWillDisappearAction?()
+    }
+
+    func nativeAdDidDismissScreen(_ nativeAd: NativeAd) {
+        onDismissAction?()
+    }
+
+    func nativeAdIsMuted(_ nativeAd: NativeAd) {
+        onAdvertisementMutedAction?()
     }
 }
 

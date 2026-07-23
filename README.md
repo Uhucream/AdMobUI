@@ -52,16 +52,41 @@ struct ContentView: View {
 }
 ```
 
+## Customizing the request
+
+`NativeAdvertisement` provides progressively disclosed initializers. Start with just an ad unit id, and reach for a custom `Request` (and ad loader options) only when you need them.
+
+```swift
+// Custom request
+NativeAdvertisement(adUnitId: "ca-pub-xxxxxx", request: myRequest) { advertisementPhase in
+    // ....
+}
+
+// Custom request and ad loader options
+NativeAdvertisement(adUnitId: "ca-pub-xxxxxx", request: myRequest, options: myOptions) { advertisementPhase in
+    // ....
+}
+```
+
+## Ad event callbacks
+
+Ad interaction events are delivered through modifiers on `NativeAdvertisement`.
+
+```swift
+NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
+    // ....
+}
+.onTap { /* a click was recorded */ }
+.onSwipeGesture { /* a swipe gesture click was recorded */ }
+.onWillAppear { /* the ad is about to present a full screen view */ }
+.onWillDisappear { /* the ad's full screen view is about to be dismissed */ }
+.onDismiss { /* the ad's full screen view was dismissed */ }
+.onAdvertisementMuted { /* the ad was muted */ }
+```
+
+These modifiers must be applied directly on `NativeAdvertisement`, before any standard SwiftUI modifier (such as `.listRowInsets`) that erases the concrete type.
+
 ## TODO
-
-- [ ] Implement support to inject custom AdLoader implementations.
-  ```swift
-  NativeAdvertisement { loadedAd in
-      // .... layout some ad
-  }
-  .environment(\.adLoader, CustomAdLoader())
-  ```
-
 
 - [ ] Improve performance
   

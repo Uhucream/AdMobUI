@@ -13,13 +13,20 @@ internal class NativeAdLoader: NSObject, ObservableObject {
     @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty
 
     private let adLoader: AdLoader
+    private let request: Request
 
-    init(adUnitId: String) {
+    init(
+        adUnitId: String,
+        request: Request,
+        options: [GADAdLoaderOptions]
+    ) {
+        self.request = request
+
         adLoader = AdLoader(
             adUnitID: adUnitId,
             rootViewController: nil,
             adTypes: [.native],
-            options: [GADAdLoaderOptions()]
+            options: options
         )
 
         super.init()
@@ -30,7 +37,7 @@ internal class NativeAdLoader: NSObject, ObservableObject {
 
 extension NativeAdLoader {
     func loadAd() {
-        adLoader.load(Request())
+        adLoader.load(request)
     }
 }
 
