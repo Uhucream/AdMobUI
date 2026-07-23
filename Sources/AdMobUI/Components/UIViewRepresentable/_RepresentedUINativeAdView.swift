@@ -241,7 +241,7 @@ extension _RepresentedUINativeAdView {
 extension _RepresentedUINativeAdView.Coordinator: NativeAdDelegate {
     // The callbacks are intentionally argument-less (() -> Void). The SDK passes the
     // nativeAd so a single delegate can tell multiple ads apart, but here one ad maps to
-    // one delegate, so there is nothing to disambiguate. Do not add a NativeAd parameter.
+    // one delegate, so there is nothing to disambiguate.
     func nativeAdDidRecordClick(_ nativeAd: NativeAd) {
         parent.onTapAction?()
     }

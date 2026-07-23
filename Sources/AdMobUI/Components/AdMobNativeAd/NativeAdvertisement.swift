@@ -100,7 +100,8 @@ extension NativeAdvertisement {
 }
 
 extension NativeAdvertisement {
-    /// Registers a handler invoked when a click is recorded on the ad.
+    /// Adds an action to perform when a click is recorded on the ad.
+    /// - Parameter action: The action to perform.
     public func onTap(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
@@ -109,7 +110,8 @@ extension NativeAdvertisement {
         return view
     }
 
-    /// Registers a handler invoked when a swipe gesture click is recorded on the ad.
+    /// Adds an action to perform when a swipe gesture click is recorded on the ad.
+    /// - Parameter action: The action to perform.
     public func onSwipeGesture(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
@@ -118,7 +120,8 @@ extension NativeAdvertisement {
         return view
     }
 
-    /// Registers a handler invoked when the ad is about to present a full screen view.
+    /// Adds an action to perform before the ad presents a full screen view.
+    /// - Parameter action: The action to perform.
     public func onWillAppear(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
@@ -127,7 +130,8 @@ extension NativeAdvertisement {
         return view
     }
 
-    /// Registers a handler invoked when the ad's full screen view is about to be dismissed.
+    /// Adds an action to perform before the ad's full screen view is dismissed.
+    /// - Parameter action: The action to perform.
     public func onWillDisappear(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
@@ -136,7 +140,8 @@ extension NativeAdvertisement {
         return view
     }
 
-    /// Registers a handler invoked after the ad's full screen view has been dismissed.
+    /// Adds an action to perform after the ad's full screen view is dismissed.
+    /// - Parameter action: The action to perform.
     public func onDismiss(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
@@ -145,7 +150,8 @@ extension NativeAdvertisement {
         return view
     }
 
-    /// Registers a handler invoked when the ad is muted.
+    /// Adds an action to perform when the ad is muted.
+    /// - Parameter action: The action to perform.
     public func onAdvertisementMuted(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
