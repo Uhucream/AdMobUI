@@ -25,31 +25,6 @@ public struct NativeAdvertisement<AdContent: View>: View {
 
     public init(
         adUnitId: String,
-        @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
-    ) {
-        self.init(
-            adUnitId: adUnitId,
-            request: Request(),
-            options: [GADAdLoaderOptions()],
-            adContent: adContent
-        )
-    }
-
-    public init(
-        adUnitId: String,
-        request: Request,
-        @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
-    ) {
-        self.init(
-            adUnitId: adUnitId,
-            request: request,
-            options: [GADAdLoaderOptions()],
-            adContent: adContent
-        )
-    }
-
-    public init(
-        adUnitId: String,
         request: Request,
         options: [GADAdLoaderOptions],
         @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
@@ -94,6 +69,33 @@ public struct NativeAdvertisement<AdContent: View>: View {
             .onAppear {
                 nativeAdLoader.loadAd()
             }
+    }
+}
+
+extension NativeAdvertisement {
+    public init(
+        adUnitId: String,
+        @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
+    ) {
+        self.init(
+            adUnitId: adUnitId,
+            request: Request(),
+            options: [GADAdLoaderOptions()],
+            adContent: adContent
+        )
+    }
+
+    public init(
+        adUnitId: String,
+        request: Request,
+        @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
+    ) {
+        self.init(
+            adUnitId: adUnitId,
+            request: request,
+            options: [GADAdLoaderOptions()],
+            adContent: adContent
+        )
     }
 }
 
