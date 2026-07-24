@@ -174,6 +174,10 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         nativeAdView.addSubview(adChoicesView)
                         return adChoicesView
                     }
+                default:
+                    // NativeAdChildViewType is a struct with a fixed set of values, so
+                    // every case above is handled and this is unreachable.
+                    fatalError("Unhandled NativeAdChildViewType")
                 }
             }()
 
@@ -253,6 +257,9 @@ extension _RepresentedUINativeAdView {
         case .adChoices:
             nativeAdView.adChoicesView?.removeFromSuperview()
             nativeAdView.adChoicesView = nil
+
+        default:
+            break
         }
     }
 }
