@@ -182,6 +182,35 @@ Use Apple framework API design as the standard. When in doubt, decide based on "
   ```
 
 - Keep the main type declaration minimal, and separate protocol conformances, nested types, and helpers into extensions.
+
+  - Exceptions: `View` and `Identifiable`. Declare conformance to these two directly on the main type declaration instead of in a separate extension.
+    - `View`: splitting `body` out into an extension makes the type harder to read for no benefit.
+    - `Identifiable`: if the `id` needs to be supplied by the caller (e.g. via an initializer parameter), it must be a stored property declared on the main type declaration, which an extension cannot provide.
+
+  ```swift
+  // Good
+  struct User: View, Identifiable {
+      let id: UUID
+
+      var body: some View { ... }
+  }
+
+  extension User: Equatable {
+      static func == (lhs: User, rhs: User) -> Bool { ... }
+  }
+
+  // Bad
+  struct User {
+      let id: UUID
+  }
+
+  extension User: View {
+      var body: some View { ... }
+  }
+
+  extension User: Identifiable {}
+  ```
+
 - Do not put UI-convenience properties in the model layer, such as visibility flags, picker lists, or ordering for display. UI policy belongs to the View / ViewContainer side.
 - Declare constants with static let and camelCase, not UPPER_SNAKE_CASE, following the Google Swift Style Guide.
 
