@@ -24,11 +24,13 @@ public struct NativeAdvertisement<AdContent: View>: View {
     private var onDismissAction: (() -> Void)?
     private var onAdvertisementMutedAction: (() -> Void)?
 
-    /// Displays a native ad for `adUnitId`, borrowing an already-loaded advertisement rather than
-    /// requesting a new one whenever the loader has one available.
+    /// Displays a native ad for `adUnitId`.
     ///
-    /// Advertisements come from the ``NativeAdvertisementLoader`` applied to this view's subtree,
-    /// or from ``NativeAdvertisementLoader/shared`` when none has been applied.
+    /// A view that reappears without a new identity, such as scrolling back into view in a
+    /// `List` or `LazyVStack`, reuses the ad it already has instead of sending another request.
+    ///
+    /// Apply `.nativeAdvertisementLoader(_:)` to this view's subtree to choose which loader
+    /// supplies the ad; ``NativeAdvertisementLoader/shared`` is used otherwise.
     public init(
         adUnitId: String,
         @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
