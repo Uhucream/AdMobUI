@@ -19,8 +19,9 @@ public struct NativeAdvertisement<AdContent: View>: View {
 
     private var onTapAction: (() -> Void)?
     private var onSwipeGestureAction: (() -> Void)?
-    private var onWillAppearAction: (() -> Void)?
-    private var onWillDisappearAction: (() -> Void)?
+    private var onImpressionRecordedAction: (() -> Void)?
+    private var onWillPresentAction: (() -> Void)?
+    private var onWillDismissAction: (() -> Void)?
     private var onDismissAction: (() -> Void)?
     private var onAdvertisementMutedAction: (() -> Void)?
 
@@ -58,8 +59,9 @@ public struct NativeAdvertisement<AdContent: View>: View {
                         elementFrames: elementFrames,
                         onTapAction: onTapAction,
                         onSwipeGestureAction: onSwipeGestureAction,
-                        onWillAppearAction: onWillAppearAction,
-                        onWillDisappearAction: onWillDisappearAction,
+                        onImpressionRecordedAction: onImpressionRecordedAction,
+                        onWillPresentAction: onWillPresentAction,
+                        onWillDismissAction: onWillDismissAction,
                         onDismissAction: onDismissAction,
                         onAdvertisementMutedAction: onAdvertisementMutedAction
                     )
@@ -128,22 +130,32 @@ extension NativeAdvertisement {
         return view
     }
 
-    /// Adds an action to perform before the ad presents a full screen view.
+    /// Adds an action to perform when an impression is recorded on the ad.
     /// - Parameter action: The action to perform.
-    public func onWillAppear(perform action: @escaping () -> Void) -> Self {
+    public func onImpressionRecorded(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
-        view.onWillAppearAction = action
+        view.onImpressionRecordedAction = action
+
+        return view
+    }
+
+    /// Adds an action to perform before the ad presents a full screen view.
+    /// - Parameter action: The action to perform.
+    public func onWillPresent(perform action: @escaping () -> Void) -> Self {
+        var view: Self = self
+
+        view.onWillPresentAction = action
 
         return view
     }
 
     /// Adds an action to perform before the ad's full screen view is dismissed.
     /// - Parameter action: The action to perform.
-    public func onWillDisappear(perform action: @escaping () -> Void) -> Self {
+    public func onWillDismiss(perform action: @escaping () -> Void) -> Self {
         var view: Self = self
 
-        view.onWillDisappearAction = action
+        view.onWillDismissAction = action
 
         return view
     }

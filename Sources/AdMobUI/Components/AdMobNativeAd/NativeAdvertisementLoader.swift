@@ -236,22 +236,22 @@ extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
 
         activeAdLoadersByAdUnitId[adUnitId]?.removeAll { $0 === adLoader }
 
-        guard receivedCount == 0, let waiters = waitersByAdUnitId[adUnitId], !waiters.isEmpty else {
-            ensureLoadInFlight(for: adUnitId)
+        if receivedCount == 0, let waiters = waitersByAdUnitId[adUnitId], !waiters.isEmpty {
+            // A load that came back completely empty is treated as terminal rather than
+            // retried automatically: retrying here on every failure would spin an unbounded
+            // stream of paid requests against an ad unit that's persistently failing. Every
+            // waiter is failed instead, and the next retry only happens if the caller's own
+            // onAppear-driven loadAd(with:) runs lend(for:requester:onChange:) again.
+            waitersByAdUnitId[adUnitId] = []
+
+            let error = lastError ?? NativeAdvertisementLoaderError.noAdvertisementReceived
+
+            waiters.forEach { $0.onChange(.failure(error)) }
 
             return
         }
 
-        // A load that came back completely empty is treated as terminal rather than retried
-        // automatically: retrying here on every failure would spin an unbounded stream of paid
-        // requests against an ad unit that's persistently failing. Every waiter is failed
-        // instead, and the next retry only happens if the caller's own onAppear-driven
-        // loadAd(with:) runs lend(for:requester:onChange:) again.
-        waitersByAdUnitId[adUnitId] = []
-
-        let error = lastError ?? NativeAdvertisementLoaderError.noAdvertisementReceived
-
-        waiters.forEach { $0.onChange(.failure(error)) }
+        ensureLoadInFlight(for: adUnitId)
     }
 }
 

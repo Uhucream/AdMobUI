@@ -17,7 +17,9 @@ extension View {
 }
 
 extension View {
-    /// Makes `loader` available to every `NativeAdvertisement` in this view's subtree.
+    /// A modifier that makes every `NativeAdvertisement` in this view's subtree load its
+    /// advertisement through `loader`, so an advertisement loaded for one view can be reused
+    /// by another instead of each view requesting its own.
     public func nativeAdvertisementLoader(_ loader: NativeAdvertisementLoader) -> some View {
         environment(\.nativeAdvertisementLoader, loader)
     }

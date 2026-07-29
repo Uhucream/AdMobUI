@@ -78,8 +78,9 @@ NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
 }
 .onTap { /* a click was recorded */ }
 .onSwipeGesture { /* a swipe gesture click was recorded */ }
-.onWillAppear { /* the ad is about to present a full screen view */ }
-.onWillDisappear { /* the ad's full screen view is about to be dismissed */ }
+.onImpressionRecorded { /* an impression was recorded */ }
+.onWillPresent { /* the ad is about to present a full screen view */ }
+.onWillDismiss { /* the ad's full screen view is about to be dismissed */ }
 .onDismiss { /* the ad's full screen view was dismissed */ }
 .onAdvertisementMuted { /* the ad was muted */ }
 ```

@@ -22,8 +22,9 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
 
     internal let onTapAction: (() -> Void)?
     internal let onSwipeGestureAction: (() -> Void)?
-    internal let onWillAppearAction: (() -> Void)?
-    internal let onWillDisappearAction: (() -> Void)?
+    internal let onImpressionRecordedAction: (() -> Void)?
+    internal let onWillPresentAction: (() -> Void)?
+    internal let onWillDismissAction: (() -> Void)?
     internal let onDismissAction: (() -> Void)?
     internal let onAdvertisementMutedAction: (() -> Void)?
 
@@ -266,12 +267,16 @@ extension _RepresentedUINativeAdView.Coordinator: NativeAdDelegate {
         parent.onSwipeGestureAction?()
     }
 
+    func nativeAdDidRecordImpression(_ nativeAd: NativeAd) {
+        parent.onImpressionRecordedAction?()
+    }
+
     func nativeAdWillPresentScreen(_ nativeAd: NativeAd) {
-        parent.onWillAppearAction?()
+        parent.onWillPresentAction?()
     }
 
     func nativeAdWillDismissScreen(_ nativeAd: NativeAd) {
-        parent.onWillDisappearAction?()
+        parent.onWillDismissAction?()
     }
 
     func nativeAdDidDismissScreen(_ nativeAd: NativeAd) {

@@ -14,7 +14,7 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
 
     private let adUnitId: String
     private let source: Source?
-    private var sharedLoader: NativeAdvertisementLoader?
+    private var advertisementLoader: NativeAdvertisementLoader?
 
     // Drives its own AdLoader with a caller-supplied request/options, bypassing the shared pool.
     init(
@@ -48,12 +48,12 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
     }
 
     deinit {
-        guard let sharedLoader else { return }
+        guard let advertisementLoader else { return }
 
         if let nativeAd = nativeAdvertisementPhase.nativeAd {
-            sharedLoader.giveBack(nativeAd, for: adUnitId)
+            advertisementLoader.giveBack(nativeAd, for: adUnitId)
         } else {
-            sharedLoader.cancelLending(requester: ObjectIdentifier(self), for: adUnitId)
+            advertisementLoader.cancelLending(requester: ObjectIdentifier(self), for: adUnitId)
         }
     }
 }
@@ -73,9 +73,9 @@ extension NativeAdvertisementBinder {
             return
         }
 
-        guard sharedLoader == nil else { return }
+        guard advertisementLoader == nil else { return }
 
-        sharedLoader = loader
+        advertisementLoader = loader
 
         loader.lend(for: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
             self?.nativeAdvertisementPhase = phase
