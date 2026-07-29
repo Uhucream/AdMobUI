@@ -25,12 +25,15 @@ extension View {
     }
 }
 
+// nil rather than .shared, so merely reading this value doesn't build the shared loader and
+// start the subscriptions and repeating timer its init sets up. Callers substitute .shared at
+// the point they actually borrow an advertisement.
 private struct NativeAdvertisementLoaderKey: EnvironmentKey {
-    static let defaultValue: NativeAdvertisementLoader = .shared
+    static let defaultValue: NativeAdvertisementLoader? = nil
 }
 
 extension EnvironmentValues {
-    var nativeAdvertisementLoader: NativeAdvertisementLoader {
+    var nativeAdvertisementLoader: NativeAdvertisementLoader? {
         get { self[NativeAdvertisementLoaderKey.self] }
         set { self[NativeAdvertisementLoaderKey.self] = newValue }
     }

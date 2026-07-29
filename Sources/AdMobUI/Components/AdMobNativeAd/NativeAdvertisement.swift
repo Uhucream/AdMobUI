@@ -11,7 +11,7 @@ import SwiftUI
 
 public struct NativeAdvertisement<AdContent: View>: View {
     @StateObject private var nativeAdvertisementBinder: NativeAdvertisementBinder
-    @Environment(\.nativeAdvertisementLoader) private var nativeAdvertisementLoader: NativeAdvertisementLoader
+    @Environment(\.nativeAdvertisementLoader) private var nativeAdvertisementLoader: NativeAdvertisementLoader?
 
     private let adUnitId: String
 

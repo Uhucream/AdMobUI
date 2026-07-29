@@ -11,7 +11,11 @@ import GoogleMobileAds
 
 @MainActor
 internal class NativeAdvertisementBinder: ObservableObject {
-    @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty
+    @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty {
+        didSet {
+            currentNativeAd = nativeAdvertisementPhase.nativeAd
+        }
+    }
 
     private let adUnitId: String
     private let source: Source?
@@ -19,7 +23,19 @@ internal class NativeAdvertisementBinder: ObservableObject {
     private var delegateAdaptor: NativeAdLoaderDelegateAdaptor?
     private var hasStartedOwnLoad: Bool = false
 
-    // Drives its own AdLoader with a caller-supplied request/options, bypassing the shared pool.
+    // deinit is nonisolated even on a @MainActor class, and @Published's synthesized accessor
+    // can't be read from there (a plain stored property can). This mirrors just the part deinit
+    // needs to decide between giving an advertisement back and cancelling a pending request.
+    private var currentNativeAd: NativeAd?
+
+    // Own-request path: drives its own AdLoader rather than borrowing from a shared
+    // NativeAdvertisementLoader, because that loader's advertisements were all loaded with the
+    // loader's own request — handing one to a view that asked for a different request would
+    // silently ignore what was asked for.
+    //
+    // A dedicated NativeAdvertisementLoader instance is deliberately not used here either: its
+    // init sets up pool machinery (expiry sweeps, a memory-warning subscription, and a repeating
+    // 5 minute timer) that a single one-off advertisement has no use for.
     init(
         adUnitId: String,
         request: Request,
@@ -52,8 +68,10 @@ internal class NativeAdvertisementBinder: ObservableObject {
         self.delegateAdaptor = delegateAdaptor
     }
 
-    // Borrows an already-loaded advertisement from a shared NativeAdvertisementLoader, supplied
-    // later via loadAd(with:) once SwiftUI's environment is available.
+    // Shared-pool path: borrows an already-loaded advertisement from a NativeAdvertisementLoader
+    // instead of requesting one, so a view reappearing in a List or LazyVStack doesn't send
+    // another billed request. The loader arrives later, via loadAd(with:), because SwiftUI's
+    // environment isn't readable until the view appears.
     init(adUnitId: String) {
         self.adUnitId = adUnitId
         self.source = nil
@@ -62,10 +80,19 @@ internal class NativeAdvertisementBinder: ObservableObject {
     deinit {
         guard let advertisementLoader else { return }
 
-        if let nativeAd = nativeAdvertisementPhase.nativeAd {
-            advertisementLoader.giveBack(nativeAd, for: adUnitId)
-        } else {
-            advertisementLoader.cancelLending(requester: ObjectIdentifier(self), for: adUnitId)
+        // deinit is nonisolated even on a @MainActor class, so the loader's @MainActor methods
+        // can't be called directly. self is being torn down and must not be captured, so the
+        // values the hop needs are read out first.
+        let capturedAdUnitId: String = adUnitId
+        let capturedNativeAd: NativeAd? = currentNativeAd
+        let requester: ObjectIdentifier = ObjectIdentifier(self)
+
+        Task { @MainActor in
+            if let capturedNativeAd {
+                advertisementLoader.giveBack(capturedNativeAd, for: capturedAdUnitId)
+            } else {
+                advertisementLoader.cancelLending(requester: requester, for: capturedAdUnitId)
+            }
         }
     }
 }
@@ -78,7 +105,7 @@ extension NativeAdvertisementBinder {
 }
 
 extension NativeAdvertisementBinder {
-    func loadAd(with loader: NativeAdvertisementLoader) {
+    func loadAd(with loader: NativeAdvertisementLoader?) {
         if let source {
             // Without this guard, every onAppear (e.g. a NavigationStack pop or TabView switch
             // bringing this view back) would call load(_:) again and send another billed
@@ -93,9 +120,13 @@ extension NativeAdvertisementBinder {
 
         guard advertisementLoader == nil else { return }
 
-        advertisementLoader = loader
+        // Reaching .shared only here keeps it from being created for a view on the own-request
+        // path above, which never borrows from a pool.
+        let sharedLoader: NativeAdvertisementLoader = loader ?? .shared
 
-        loader.lend(for: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
+        advertisementLoader = sharedLoader
+
+        sharedLoader.lend(for: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
             self?.nativeAdvertisementPhase = phase
         }
     }
