@@ -56,7 +56,7 @@ jobs:
           set -o pipefail
           xcodebuild build \
             -scheme AdMobUI \
-            -destination 'generic/platform=iOS Simulator'
+            -destination 'generic/platform=iOS'
 
       - name: Build and Test
         if: steps.detect_tests.outputs.has_tests == 'true'

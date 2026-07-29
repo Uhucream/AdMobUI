@@ -52,16 +52,78 @@ struct ContentView: View {
 }
 ```
 
-## TODO
+## Customizing the request
 
-- [ ] Implement support to inject custom AdLoader implementations.
-  ```swift
-  NativeAdvertisement { loadedAd in
-      // .... layout some ad
-  }
-  .environment(\.adLoader, CustomAdLoader())
-  ```
+A custom `Request` (and ad loader options) belongs on a `NativeAdvertisementLoader`, which you then apply to the views that should use it.
 
+```swift
+var configuration: NativeAdvertisementLoader.Configuration = .default
+configuration.request = myRequest
+configuration.options = myOptions
 
-- [ ] Improve performance
-  
+let loader = NativeAdvertisementLoader(configuration: configuration)
+
+NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
+    // ....
+}
+.nativeAdvertisementLoader(loader)
+```
+
+Hold the loader somewhere that outlives the views using it. A loader created inline in `body` is rebuilt every time the view is, which throws away its loaded ads along with it.
+
+## Ad event callbacks
+
+Ad interaction events are delivered through modifiers on `NativeAdvertisement`.
+
+```swift
+NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
+    // ....
+}
+.onTap { /* a click was recorded */ }
+.onSwipeGesture { /* a swipe gesture click was recorded */ }
+.onImpressionRecorded { /* an impression was recorded */ }
+.onWillPresent { /* the ad is about to present a full screen view */ }
+.onWillDismiss { /* the ad's full screen view is about to be dismissed */ }
+.onDismiss { /* the ad's full screen view was dismissed */ }
+.onAdvertisementMuted { /* the ad was muted */ }
+```
+
+These modifiers must be applied directly on `NativeAdvertisement`, before any standard SwiftUI modifier (such as `.listRowInsets`) that erases the concrete type.
+
+## Reusing ads in a feed
+
+`NativeAdvertisement(adUnitId:adContent:)` borrows an already-loaded ad from a shared `NativeAdvertisementLoader` instead of always requesting a new one. This matters in a `List` or `LazyVStack`: SwiftUI destroys and recreates a cell as it scrolls out and back into view, so without reuse, every reappearance would send a new (billed, rate-limited) ad request. This is the default behavior — no code changes are required to benefit from it.
+
+To configure the shared loader (for example, to preload several ads per request), create one and apply it to the relevant view subtree:
+
+```swift
+var configuration: NativeAdvertisementLoader.Configuration = .default
+configuration.numberOfAdvertisements = 5
+
+let loader = NativeAdvertisementLoader(configuration: configuration)
+
+List {
+    ForEach(items) { item in
+        Row(item)
+        NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
+            // ....
+        }
+    }
+}
+.nativeAdvertisementLoader(loader)
+```
+
+`numberOfAdvertisements` (1 through 5) requests several ads in a single network round trip. Requesting more than one only serves Google ads — mediated networks don't participate in a multi-ad request — so raise it only when that trade-off is acceptable. Ads are dropped after roughly an hour, matching AdMob's own validity window for a loaded native ad; the loader also sweeps for expired ads on a timer and when the app returns to the foreground, so an ad unit id nobody happens to touch doesn't sit stale indefinitely.
+
+A loader's ads are all loaded with that loader's own `request`, so views needing different targeting need a loader of their own. Apply one with `.nativeAdvertisementLoader(_:)` on just those views, and leave the rest of the tree on the shared loader.
+
+### Precaching a list of ads
+
+Google recommends precaching the ads a list is about to show rather than loading them one at a time as cells appear. Call `prefetch(for:)` before the list is shown (e.g. once the underlying data has loaded):
+
+```swift
+loader.prefetch(for: "ca-pub-xxxxxx")
+```
+
+`prefetch(for:)` requests as many ads as `maximumRetainedAdvertisements` allows — set that on the loader's `Configuration` to however many ad slots the list is expected to show at once. It only tops up what's missing, so it's a no-op if enough ads are already loaded or in flight.
+

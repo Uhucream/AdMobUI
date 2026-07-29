@@ -14,13 +14,19 @@ internal struct ElementFrame {
     let frame: CGRect
 }
 
-extension ElementFrame: Equatable {}
-
 internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     typealias UIViewType = _UINativeAdView
 
     internal let nativeAd: NativeAd?
     internal let elementFrames: [ElementFrame]
+
+    internal let onTapAction: (() -> Void)?
+    internal let onSwipeGestureAction: (() -> Void)?
+    internal let onImpressionRecordedAction: (() -> Void)?
+    internal let onWillPresentAction: (() -> Void)?
+    internal let onWillDismissAction: (() -> Void)?
+    internal let onDismissAction: (() -> Void)?
+    internal let onAdvertisementMutedAction: (() -> Void)?
 
     internal func makeUIView(context: Context) -> _UINativeAdView {
         let nativeAdView = _UINativeAdView()
@@ -31,7 +37,18 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     }
 
     internal func updateUIView(_ nativeAdView: _UINativeAdView, context: Context) {
+        // Keep the coordinator's callbacks current even when the rest of this update is
+        // skipped below (this replaces what `.equatable()` used to do at the view level).
+        context.coordinator.parent = self
+
         guard let nativeAd else { return }
+
+        let hasSameAdvertisement: Bool = nativeAdView.nativeAd === nativeAd
+        let hasSameElementFrames: Bool =
+            nativeAdView.lastAppliedElementFrames.count == elementFrames.count
+            && elementFrames.allSatisfy { nativeAdView.lastAppliedElementFrames[$0.elementType] == $0.frame }
+
+        guard !(hasSameAdvertisement && hasSameElementFrames) else { return }
 
         let currentElementTypes: Set<NativeAdChildViewType> = Set(elementFrames.map(\.elementType))
         let staleElementTypes: Set<NativeAdChildViewType> = Set(nativeAdView.lastAppliedElementFrames.keys)
@@ -206,8 +223,68 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             nativeAdView.lastAppliedElementFrames[type] = frame
         }
 
+        // The NativeAd instance only exists after the async load completes, so this is
+        // the only point where its delegate can be set.
+        nativeAd.delegate = context.coordinator
+
         // Set the NativeAd
         nativeAdView.nativeAd = nativeAd
+    }
+
+    internal static func dismantleUIView(_ nativeAdView: _UINativeAdView, coordinator: Coordinator) {
+        // An ad returned to a shared NativeAdvertisementLoader can be lent straight back out to
+        // a different view; unregistering here keeps that reuse from carrying over this view's
+        // asset-view associations.
+        nativeAdView.nativeAd?.unregisterAdView()
+    }
+
+    internal func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+}
+
+extension _RepresentedUINativeAdView {
+    internal final class Coordinator: NSObject {
+        fileprivate var parent: _RepresentedUINativeAdView
+
+        init(_ parent: _RepresentedUINativeAdView) {
+            self.parent = parent
+
+            super.init()
+        }
+    }
+}
+
+extension _RepresentedUINativeAdView.Coordinator: NativeAdDelegate {
+    // The callbacks are intentionally argument-less (() -> Void). The SDK passes the
+    // nativeAd so a single delegate can tell multiple ads apart, but here one ad maps to
+    // one delegate, so there is nothing to disambiguate.
+    func nativeAdDidRecordClick(_ nativeAd: NativeAd) {
+        parent.onTapAction?()
+    }
+
+    func nativeAdDidRecordSwipeGestureClick(_ nativeAd: NativeAd) {
+        parent.onSwipeGestureAction?()
+    }
+
+    func nativeAdDidRecordImpression(_ nativeAd: NativeAd) {
+        parent.onImpressionRecordedAction?()
+    }
+
+    func nativeAdWillPresentScreen(_ nativeAd: NativeAd) {
+        parent.onWillPresentAction?()
+    }
+
+    func nativeAdWillDismissScreen(_ nativeAd: NativeAd) {
+        parent.onWillDismissAction?()
+    }
+
+    func nativeAdDidDismissScreen(_ nativeAd: NativeAd) {
+        parent.onDismissAction?()
+    }
+
+    func nativeAdIsMuted(_ nativeAd: NativeAd) {
+        parent.onAdvertisementMutedAction?()
     }
 }
 
@@ -260,23 +337,6 @@ extension _RepresentedUINativeAdView {
 
         default:
             break
-        }
-    }
-}
-
-extension _RepresentedUINativeAdView: Equatable {
-    internal static func == (lhs: _RepresentedUINativeAdView, rhs: _RepresentedUINativeAdView) -> Bool {
-        guard lhs.elementFrames == rhs.elementFrames else { return false }
-
-        switch (lhs.nativeAd, rhs.nativeAd) {
-        case (nil, nil):
-            return true
-
-        case let (lhsNativeAd?, rhsNativeAd?):
-            return lhsNativeAd === rhsNativeAd
-
-        default:
-            return false
         }
     }
 }
