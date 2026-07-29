@@ -11,6 +11,7 @@ import SwiftUI
 
 public struct NativeAdvertisement<AdContent: View>: View {
     @StateObject private var nativeAdvertisementBinder: NativeAdvertisementBinder
+    @Environment(\.nativeAdvertisementLoader) private var nativeAdvertisementLoader: NativeAdvertisementLoader
 
     private let adUnitId: String
 
@@ -66,24 +67,32 @@ public struct NativeAdvertisement<AdContent: View>: View {
                 }
             }
             .onAppear {
-                nativeAdvertisementBinder.loadAd()
+                nativeAdvertisementBinder.loadAd(preferring: nativeAdvertisementLoader)
             }
     }
 }
 
 extension NativeAdvertisement {
+    /// Displays a native ad for `adUnitId`, borrowing an already-loaded advertisement from the
+    /// shared ``NativeAdvertisementLoader`` when one is available instead of always requesting a
+    /// new one.
     public init(
         adUnitId: String,
         @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
     ) {
-        self.init(
-            adUnitId: adUnitId,
-            request: Request(),
-            options: [GADAdLoaderOptions()],
-            adContent: adContent
+        self.adUnitId = adUnitId
+        self.adContent = adContent
+
+        _nativeAdvertisementBinder = StateObject(
+            wrappedValue: NativeAdvertisementBinder(adUnitId: adUnitId)
         )
     }
 
+    /// Displays a native ad loaded with a caller-supplied request.
+    ///
+    /// This view drives its own request instead of borrowing from the shared
+    /// ``NativeAdvertisementLoader``, since an advertisement from the shared loader was loaded
+    /// with the loader's own request and reusing it here would silently ignore this one.
     public init(
         adUnitId: String,
         request: Request,

@@ -15,3 +15,21 @@ extension View {
         }
     }
 }
+
+extension View {
+    /// Makes `loader` available to every `NativeAdvertisement` in this view's subtree.
+    public func nativeAdvertisementLoader(_ loader: NativeAdvertisementLoader) -> some View {
+        environment(\.nativeAdvertisementLoader, loader)
+    }
+}
+
+private struct NativeAdvertisementLoaderKey: EnvironmentKey {
+    static let defaultValue: NativeAdvertisementLoader = .shared
+}
+
+extension EnvironmentValues {
+    var nativeAdvertisementLoader: NativeAdvertisementLoader {
+        get { self[NativeAdvertisementLoaderKey.self] }
+        set { self[NativeAdvertisementLoaderKey.self] = newValue }
+    }
+}
