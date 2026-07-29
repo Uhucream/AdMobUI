@@ -20,7 +20,11 @@ internal class NativeAdvertisementBinder: ObservableObject {
     private let adUnitId: String
     private let source: Source?
     private var advertisementLoader: NativeAdvertisementLoader?
+
+    // AdLoader.delegate is weak; nothing else holds a strong reference to the adaptor, so this
+    // exists purely to keep it alive for as long as this AdLoader is in use, not to be read back.
     private var delegateAdaptor: NativeAdLoaderDelegateAdaptor?
+
     private var hasStartedOwnLoad: Bool = false
 
     // deinit is nonisolated even on a @MainActor class, and @Published's synthesized accessor

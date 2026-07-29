@@ -24,6 +24,10 @@ public final class NativeAdvertisementLoader {
     private var entriesByAdUnitId: [String: [Entry]] = [:]
     private var waitersByAdUnitId: [String: [Waiter]] = [:]
     private var activeAdLoadersByAdUnitId: [String: [AdLoader]] = [:]
+
+    // AdLoader.delegate is weak; nothing else holds a strong reference to an adaptor, so this
+    // exists purely to keep each one alive for as long as its AdLoader is in use, not to be
+    // read back (entries are removed once handleAdLoaderDidFinishLoading is done with them).
     private var delegateAdaptorsByAdLoader: [ObjectIdentifier: NativeAdLoaderDelegateAdaptor] = [:]
     private var receivedAdvertisementCountsByAdLoader: [ObjectIdentifier: Int] = [:]
     private var lastErrorsByAdLoader: [ObjectIdentifier: any Error] = [:]
