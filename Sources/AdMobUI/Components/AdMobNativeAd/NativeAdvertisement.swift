@@ -30,7 +30,7 @@ public struct NativeAdvertisement<AdContent: View>: View {
     /// `List` or `LazyVStack`, reuses the ad it already has instead of sending another request.
     ///
     /// The ad comes from the ``NativeAdvertisementLoader`` applied to this view's subtree with
-    /// `.nativeAdvertisementLoader(_:)`, or from ``NativeAdvertisementLoader/shared`` when none
+    /// ``SwiftUICore/View/nativeAdvertisementLoader(_:)``, or from ``NativeAdvertisementLoader/shared`` when none
     /// has been applied.
     public init(
         adUnitId: String,

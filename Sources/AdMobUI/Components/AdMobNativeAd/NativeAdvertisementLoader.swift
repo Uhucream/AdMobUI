@@ -177,7 +177,7 @@ extension NativeAdvertisementLoader {
 
 extension NativeAdvertisementLoader {
     /// Requests as many advertisements for `adUnitId` as this loader's
-    /// ``Configuration/maximumRetainedAdvertisements`` allows, so views that appear afterward
+    /// ``NativeAdvertisementLoader/Configuration/maximumRetainedAdvertisements`` allows, so views that appear afterward
     /// can be served immediately instead of triggering a fresh load.
     @MainActor
     public func prefetch(for adUnitId: String) {
