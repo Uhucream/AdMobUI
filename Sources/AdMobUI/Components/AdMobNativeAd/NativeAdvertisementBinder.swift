@@ -15,6 +15,7 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
     private let adUnitId: String
     private let source: Source?
     private var advertisementLoader: NativeAdvertisementLoader?
+    private var hasStartedOwnLoad: Bool = false
 
     // Drives its own AdLoader with a caller-supplied request/options, bypassing the shared pool.
     init(
@@ -68,6 +69,12 @@ extension NativeAdvertisementBinder {
 extension NativeAdvertisementBinder {
     func loadAd(with loader: NativeAdvertisementLoader) {
         if let source {
+            // Without this guard, every onAppear (e.g. a NavigationStack pop or TabView switch
+            // bringing this view back) would call load(_:) again and send another billed
+            // request, even though the first one already succeeded or is still in flight.
+            guard !hasStartedOwnLoad else { return }
+
+            hasStartedOwnLoad = true
             source.adLoader.load(source.request)
 
             return

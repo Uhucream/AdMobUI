@@ -168,7 +168,7 @@ extension NativeAdvertisementLoader {
         purgeExpiredEntries(for: adUnitId)
 
         while estimatedSupply(for: adUnitId) < effectiveMaximumRetainedAdvertisements,
-              (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) < configuration.maximumConcurrentLoads {
+              (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) < effectiveMaximumConcurrentLoads {
             startLoad(for: adUnitId)
         }
     }
@@ -190,7 +190,7 @@ extension NativeAdvertisementLoader {
     private func ensureLoadInFlight(for adUnitId: String) {
         guard !(waitersByAdUnitId[adUnitId]?.isEmpty ?? true) else { return }
 
-        guard (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) < configuration.maximumConcurrentLoads else {
+        guard (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) < effectiveMaximumConcurrentLoads else {
             return
         }
 
@@ -249,6 +249,13 @@ extension NativeAdvertisementLoader {
     // the moment it arrives, so the effective cap never goes below the batch size configured.
     private var effectiveMaximumRetainedAdvertisements: Int {
         max(configuration.maximumRetainedAdvertisements, configuration.numberOfAdvertisements)
+    }
+
+    // A value below 1 would make ensureLoadInFlight's "is a slot free" check permanently fail,
+    // so a waiter registered in lend(for:requester:onChange:) would never be served: no load
+    // would ever be allowed to start, and nothing would surface an error to explain why.
+    private var effectiveMaximumConcurrentLoads: Int {
+        max(configuration.maximumConcurrentLoads, 1)
     }
 
     private func estimatedSupply(for adUnitId: String) -> Int {
