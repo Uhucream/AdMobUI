@@ -86,27 +86,30 @@ NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
 
 These modifiers must be applied directly on `NativeAdvertisement`, before any standard SwiftUI modifier (such as `.listRowInsets`) that erases the concrete type.
 
-## TODO
+## Reusing ads in a feed
 
-- [ ] Improve performance for ad-dense feeds
+`NativeAdvertisement(adUnitId:adContent:)` borrows an already-loaded ad from a shared `NativeAdvertisementLoader` instead of always requesting a new one. This matters in a `List` or `LazyVStack`: SwiftUI destroys and recreates a cell as it scrolls out and back into view, so without reuse, every reappearance would send a new (billed, rate-limited) ad request. This is the default behavior — no code changes are required to benefit from it.
 
-  Today each `NativeAdvertisement` owns its own loader and requests an ad in
-  `onAppear`. Inside a `List` / `LazyVStack`, cells are destroyed and recreated
-  as they scroll, so the loader is rebuilt and a fresh ad is requested every
-  time a cell scrolls back into view. Ad requests are billed and rate limited,
-  so a long scrolling feed can issue far more requests than it shows ads.
+To configure the shared loader (for example, to preload several ads per request), create one and apply it to the relevant view subtree:
 
-  Direction:
+```swift
+var configuration: NativeAdvertisementLoader.Configuration = .default
+configuration.numberOfAdvertisements = 5
 
-  - Introduce an ad pool/cache keyed by ad unit id that holds already-loaded
-    ads and hands them out to views, so scrolling reuses ads instead of
-    re-requesting them.
-  - Preload a batch in a single request with
-    `GADMultipleAdsAdLoaderOptions.numberOfAds` (up to 5 per request) to cut
-    round trips, rather than one request per cell.
-  - Let a view consume an ad from the shared pool instead of owning a loader.
-    This is a different, opt-in API surface from the per-view `request:` /
-    `options:` initializers (a shared loader implies a shared request), so it
-    should be designed as an additive layer that does not change the current
-    simple usage.
-  
+let loader = NativeAdvertisementLoader(configuration: configuration)
+
+List {
+    ForEach(items) { item in
+        Row(item)
+        NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
+            // ....
+        }
+    }
+}
+.nativeAdvertisementLoader(loader)
+```
+
+`numberOfAdvertisements` (1 through 5) requests several ads in a single network round trip. Requesting more than one only serves Google ads — mediated networks don't participate in a multi-ad request — so raise it only when that trade-off is acceptable. Ads are dropped after roughly an hour, matching AdMob's own validity window for a loaded native ad.
+
+Passing an explicit `request:` (and `options:`) to `NativeAdvertisement` opts that view out of the shared loader: the loader's ads were all loaded with the loader's own request, so reusing one for a view that asked for a different request would silently ignore it. Use the shared loader for a feed, and the `request:` initializers for one-off ads with their own targeting.
+
