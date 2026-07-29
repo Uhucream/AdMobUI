@@ -17,6 +17,7 @@ public final class NativeAdvertisementLoader: NSObject {
     public static let shared: NativeAdvertisementLoader = .init(configuration: .default)
 
     private static let maximumRetentionInterval: TimeInterval = 55 * 60
+    private static let expirationSweepInterval: TimeInterval = 5 * 60
 
     private let configuration: Configuration
 
@@ -25,18 +26,37 @@ public final class NativeAdvertisementLoader: NSObject {
     private var activeAdLoadersByAdUnitId: [String: [AdLoader]] = [:]
     private var receivedAdvertisementCountsByAdLoader: [ObjectIdentifier: Int] = [:]
     private var lastErrorsByAdLoader: [ObjectIdentifier: any Error] = [:]
-    private var memoryWarningCancellable: AnyCancellable?
+    private var cancellables: Set<AnyCancellable> = []
 
     public init(configuration: Configuration) {
         self.configuration = configuration
 
         super.init()
 
-        memoryWarningCancellable = NotificationCenter.default
+        NotificationCenter.default
             .publisher(for: UIApplication.didReceiveMemoryWarningNotification)
             .sink { [weak self] _ in
                 self?.discardIdleAdvertisements()
             }
+            .store(in: &cancellables)
+
+        // purgeExpiredEntries(for:) only ever runs as a side effect of something asking to
+        // lend/giveBack that specific ad unit id, so an ad unit id nobody touches for a while
+        // would otherwise sit past its ~1 hour validity window unnoticed. These two sweep
+        // every ad unit id proactively instead of waiting for the next lend/giveBack call.
+        NotificationCenter.default
+            .publisher(for: UIApplication.willEnterForegroundNotification)
+            .sink { [weak self] _ in
+                self?.purgeAllExpiredEntries()
+            }
+            .store(in: &cancellables)
+
+        Timer.publish(every: Self.expirationSweepInterval, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.purgeAllExpiredEntries()
+            }
+            .store(in: &cancellables)
     }
 }
 
@@ -66,7 +86,7 @@ extension NativeAdvertisementLoader.Configuration {
         options: [GADAdLoaderOptions()],
         numberOfAdvertisements: 1,
         maximumConcurrentLoads: 3,
-        maximumRetainedAdvertisements: 10
+        maximumRetainedAdvertisements: 5
     )
 }
 
@@ -138,6 +158,21 @@ extension NativeAdvertisementLoader {
 
         serveWaiterIfPossible(for: adUnitId)
     }
+
+    /// Requests enough advertisements for `adUnitId` to have `count` ready ahead of time, so
+    /// views that appear afterward can be served immediately instead of triggering a fresh load.
+    ///
+    /// `count` is capped at this loader's `Configuration.maximumRetainedAdvertisements`.
+    public func prefetch(_ count: Int, for adUnitId: String) {
+        purgeExpiredEntries(for: adUnitId)
+
+        let targetCount = min(count, effectiveMaximumRetainedAdvertisements)
+
+        while estimatedSupply(for: adUnitId) < targetCount,
+              (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) < configuration.maximumConcurrentLoads {
+            startLoad(for: adUnitId)
+        }
+    }
 }
 
 extension NativeAdvertisementLoader {
@@ -196,10 +231,10 @@ extension NativeAdvertisementLoader {
     private func trimRetainedAdvertisements(for adUnitId: String) {
         guard var entries = entriesByAdUnitId[adUnitId] else { return }
 
-        // Only idle entries can be dropped to respect maximumRetainedAdvertisements, for the
-        // same reason as purgeExpiredEntries(for:): a lent entry may still be on screen. If
-        // every entry is lent, the cap is exceeded until one is given back.
-        while entries.count > configuration.maximumRetainedAdvertisements,
+        // Only idle entries can be dropped to respect effectiveMaximumRetainedAdvertisements,
+        // for the same reason as purgeExpiredEntries(for:): a lent entry may still be on
+        // screen. If every entry is lent, the cap is exceeded until one is given back.
+        while entries.count > effectiveMaximumRetainedAdvertisements,
               let availableEntryIndex = entries.firstIndex(where: { !$0.isLent }) {
             entries.remove(at: availableEntryIndex)
         }
@@ -209,6 +244,20 @@ extension NativeAdvertisementLoader {
 
     private func isExpired(_ entry: Entry) -> Bool {
         Date().timeIntervalSince(entry.loadedAt) > Self.maximumRetentionInterval
+    }
+
+    // A cap below numberOfAdvertisements would trim members of a batch that was just paid for
+    // the moment it arrives, so the effective cap never goes below the batch size configured.
+    private var effectiveMaximumRetainedAdvertisements: Int {
+        max(configuration.maximumRetainedAdvertisements, configuration.numberOfAdvertisements)
+    }
+
+    private func estimatedSupply(for adUnitId: String) -> Int {
+        let idleCount = entriesByAdUnitId[adUnitId]?.reduce(0) { $0 + ($1.isLent ? 0 : 1) } ?? 0
+        let inFlightCount = (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0)
+            * max(configuration.numberOfAdvertisements, 1)
+
+        return idleCount + inFlightCount
     }
 }
 
@@ -259,6 +308,12 @@ extension NativeAdvertisementLoader {
     private func discardIdleAdvertisements() {
         for adUnitId in entriesByAdUnitId.keys {
             entriesByAdUnitId[adUnitId]?.removeAll { !$0.isLent }
+        }
+    }
+
+    private func purgeAllExpiredEntries() {
+        for adUnitId in entriesByAdUnitId.keys {
+            purgeExpiredEntries(for: adUnitId)
         }
     }
 }

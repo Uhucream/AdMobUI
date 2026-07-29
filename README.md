@@ -110,7 +110,17 @@ List {
 .nativeAdvertisementLoader(loader)
 ```
 
-`numberOfAdvertisements` (1 through 5) requests several ads in a single network round trip. Requesting more than one only serves Google ads — mediated networks don't participate in a multi-ad request — so raise it only when that trade-off is acceptable. Ads are dropped after roughly an hour, matching AdMob's own validity window for a loaded native ad.
+`numberOfAdvertisements` (1 through 5) requests several ads in a single network round trip. Requesting more than one only serves Google ads — mediated networks don't participate in a multi-ad request — so raise it only when that trade-off is acceptable. Ads are dropped after roughly an hour, matching AdMob's own validity window for a loaded native ad; the loader also sweeps for expired ads on a timer and when the app returns to the foreground, so an ad unit id nobody happens to touch doesn't sit stale indefinitely.
 
 Passing an explicit `request:` (and `options:`) to `NativeAdvertisement` opts that view out of the shared loader: the loader's ads were all loaded with the loader's own request, so reusing one for a view that asked for a different request would silently ignore it. Use the shared loader for a feed, and the `request:` initializers for one-off ads with their own targeting.
+
+### Precaching a list of ads
+
+Google recommends precaching the ads a list is about to show rather than loading them one at a time as cells appear. Call `prefetch(_:for:)` before the list is shown (e.g. once the underlying data has loaded) with the number of ads you expect to display at once:
+
+```swift
+loader.prefetch(3, for: "ca-pub-xxxxxx")
+```
+
+`prefetch(_:for:)` only tops up what's missing — it's a no-op if enough ads are already loaded or in flight — and the requested count is capped at `maximumRetainedAdvertisements`.
 
