@@ -65,6 +65,12 @@ internal class NativeAdvertisementBinder: ObservableObject {
                 // The SDK documents at least one of didReceive/didFailToReceiveAdWithError
                 // firing per request, but doesn't guarantee it; without this, a request that
                 // finishes without either would leave the phase stuck at .empty forever.
+                //
+                // .empty already doubles as "not started" and "in flight" since
+                // NativeAdvertisementPhase has no case of its own for "loading". Leaving a
+                // finished-but-empty result there too would erase the distinction between
+                // those three states for callers; .failure keeps "the attempt is settled"
+                // a meaningful boundary.
                 guard case .empty = self?.nativeAdvertisementPhase else { return }
 
                 self?.nativeAdvertisementPhase = .failure(NativeAdvertisementLoaderError.noAdvertisementReceived)
