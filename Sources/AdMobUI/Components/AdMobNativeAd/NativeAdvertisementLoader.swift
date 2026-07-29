@@ -200,9 +200,9 @@ extension NativeAdvertisementLoader {
     private func startLoad(for adUnitId: String) {
         var options = configuration.options
 
-        if configuration.numberOfAdvertisements > 1 {
+        if effectiveNumberOfAdvertisements > 1 {
             let multipleAdsOptions = MultipleAdsAdLoaderOptions()
-            multipleAdsOptions.numberOfAds = configuration.numberOfAdvertisements
+            multipleAdsOptions.numberOfAds = effectiveNumberOfAdvertisements
 
             options.append(multipleAdsOptions)
         }
@@ -248,7 +248,7 @@ extension NativeAdvertisementLoader {
     // A cap below numberOfAdvertisements would trim members of a batch that was just paid for
     // the moment it arrives, so the effective cap never goes below the batch size configured.
     private var effectiveMaximumRetainedAdvertisements: Int {
-        max(configuration.maximumRetainedAdvertisements, configuration.numberOfAdvertisements)
+        max(configuration.maximumRetainedAdvertisements, effectiveNumberOfAdvertisements)
     }
 
     // A value below 1 would make ensureLoadInFlight's "is a slot free" check permanently fail,
@@ -258,10 +258,16 @@ extension NativeAdvertisementLoader {
         max(configuration.maximumConcurrentLoads, 1)
     }
 
+    // MultipleAdsAdLoaderOptions.numberOfAds only accepts 1...5; clamping here keeps every
+    // other computation (retained cap, estimated supply) consistent with the value actually
+    // sent to the SDK, instead of each one re-deriving its own guess at the real batch size.
+    private var effectiveNumberOfAdvertisements: Int {
+        min(max(configuration.numberOfAdvertisements, 1), 5)
+    }
+
     private func estimatedSupply(for adUnitId: String) -> Int {
         let idleCount = entriesByAdUnitId[adUnitId]?.reduce(0) { $0 + ($1.isLent ? 0 : 1) } ?? 0
-        let inFlightCount = (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0)
-            * max(configuration.numberOfAdvertisements, 1)
+        let inFlightCount = (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) * effectiveNumberOfAdvertisements
 
         return idleCount + inFlightCount
     }
