@@ -116,11 +116,11 @@ Passing an explicit `request:` (and `options:`) to `NativeAdvertisement` opts th
 
 ### Precaching a list of ads
 
-Google recommends precaching the ads a list is about to show rather than loading them one at a time as cells appear. Call `prefetch(_:for:)` before the list is shown (e.g. once the underlying data has loaded) with the number of ads you expect to display at once:
+Google recommends precaching the ads a list is about to show rather than loading them one at a time as cells appear. Call `prefetch(for:)` before the list is shown (e.g. once the underlying data has loaded):
 
 ```swift
-loader.prefetch(3, for: "ca-pub-xxxxxx")
+loader.prefetch(for: "ca-pub-xxxxxx")
 ```
 
-`prefetch(_:for:)` only tops up what's missing — it's a no-op if enough ads are already loaded or in flight — and the requested count is capped at `maximumRetainedAdvertisements`.
+`prefetch(for:)` requests as many ads as `maximumRetainedAdvertisements` allows — set that on the loader's `Configuration` to however many ad slots the list is expected to show at once. It only tops up what's missing, so it's a no-op if enough ads are already loaded or in flight.
 

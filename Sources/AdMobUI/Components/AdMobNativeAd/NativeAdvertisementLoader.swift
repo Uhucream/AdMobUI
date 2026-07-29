@@ -161,16 +161,13 @@ extension NativeAdvertisementLoader {
 }
 
 extension NativeAdvertisementLoader {
-    /// Requests enough advertisements for `adUnitId` to have `count` ready ahead of time, so
-    /// views that appear afterward can be served immediately instead of triggering a fresh load.
-    ///
-    /// `count` is capped at this loader's `Configuration.maximumRetainedAdvertisements`.
-    public func prefetch(_ count: Int, for adUnitId: String) {
+    /// Requests as many advertisements for `adUnitId` as this loader's
+    /// ``Configuration/maximumRetainedAdvertisements`` allows, so views that appear afterward
+    /// can be served immediately instead of triggering a fresh load.
+    public func prefetch(for adUnitId: String) {
         purgeExpiredEntries(for: adUnitId)
 
-        let targetCount = min(count, effectiveMaximumRetainedAdvertisements)
-
-        while estimatedSupply(for: adUnitId) < targetCount,
+        while estimatedSupply(for: adUnitId) < effectiveMaximumRetainedAdvertisements,
               (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) < configuration.maximumConcurrentLoads {
             startLoad(for: adUnitId)
         }
