@@ -10,7 +10,7 @@ import GoogleMobileAds
 import SwiftUI
 
 public struct NativeAdvertisement<AdContent: View>: View {
-    @StateObject private var nativeAdLoader: NativeAdLoader
+    @StateObject private var nativeAdvertisementBinder: NativeAdvertisementBinder
 
     private let adUnitId: String
 
@@ -32,8 +32,8 @@ public struct NativeAdvertisement<AdContent: View>: View {
         self.adUnitId = adUnitId
         self.adContent = adContent
 
-        _nativeAdLoader = StateObject(
-            wrappedValue: NativeAdLoader(
+        _nativeAdvertisementBinder = StateObject(
+            wrappedValue: NativeAdvertisementBinder(
                 adUnitId: adUnitId,
                 request: request,
                 options: options
@@ -42,7 +42,7 @@ public struct NativeAdvertisement<AdContent: View>: View {
     }
 
     public var body: some View {
-        adContent(nativeAdLoader.nativeAdvertisementPhase)
+        adContent(nativeAdvertisementBinder.nativeAdvertisementPhase)
             .overlayPreferenceValue(TypedAnchorBoundsPreferenceKey.self, alignment: .center) { namedAnchors in
                 GeometryReader { overlayGeometry in
                     let elementFrames: [ElementFrame] = namedAnchors.map {
@@ -53,7 +53,7 @@ public struct NativeAdvertisement<AdContent: View>: View {
                     }
 
                     _RepresentedUINativeAdView(
-                        nativeAd: nativeAdLoader.nativeAdvertisementPhase.nativeAd,
+                        nativeAd: nativeAdvertisementBinder.nativeAdvertisementPhase.nativeAd,
                         elementFrames: elementFrames,
                         onTapAction: onTapAction,
                         onSwipeGestureAction: onSwipeGestureAction,
@@ -66,7 +66,7 @@ public struct NativeAdvertisement<AdContent: View>: View {
                 }
             }
             .onAppear {
-                nativeAdLoader.loadAd()
+                nativeAdvertisementBinder.loadAd()
             }
     }
 }

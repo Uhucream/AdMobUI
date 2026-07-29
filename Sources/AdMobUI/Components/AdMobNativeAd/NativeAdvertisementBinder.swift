@@ -1,15 +1,15 @@
 //
-//  NativeAdLoader.swift
+//  NativeAdvertisementBinder.swift
 //  AdMob-SwiftUI
-//  
+//
 //  Created by Takashi Ushikoshi on 2025/07/09.
-//  
+//
 //
 
 import Combine
 import GoogleMobileAds
 
-internal class NativeAdLoader: NSObject, ObservableObject {
+internal class NativeAdvertisementBinder: NSObject, ObservableObject {
     @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty
 
     private let adLoader: AdLoader
@@ -35,13 +35,13 @@ internal class NativeAdLoader: NSObject, ObservableObject {
     }
 }
 
-extension NativeAdLoader {
+extension NativeAdvertisementBinder {
     func loadAd() {
         adLoader.load(request)
     }
 }
 
-extension NativeAdLoader: NativeAdLoaderDelegate {
+extension NativeAdvertisementBinder: NativeAdLoaderDelegate {
     func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
         self.nativeAdvertisementPhase = .success(nativeAd)
     }
