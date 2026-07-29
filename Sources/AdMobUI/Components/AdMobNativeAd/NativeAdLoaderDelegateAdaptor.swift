@@ -25,6 +25,7 @@ internal final class NativeAdLoaderDelegateAdaptor: NSObject {
         self.onReceive = onReceive
         self.onFailure = onFailure
         self.onFinishLoading = onFinishLoading
+        super.init()
     }
 }
 
