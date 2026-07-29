@@ -126,6 +126,11 @@ extension NativeAdvertisementLoader {
         guard !isExpired(entriesByAdUnitId[adUnitId]![matchingEntryIndex]) else {
             entriesByAdUnitId[adUnitId]?.remove(at: matchingEntryIndex)
 
+            // The entry being given back was the only candidate that could have served any
+            // waiter registered for this ad unit id; without this, a waiter would sit stuck
+            // forever if the ad handed back for reuse turned out to be expired.
+            ensureLoadInFlight(for: adUnitId)
+
             return
         }
 
@@ -183,12 +188,17 @@ extension NativeAdvertisementLoader {
     }
 
     private func purgeExpiredEntries(for adUnitId: String) {
+        // Only idle entries are dropped here. A lent entry stays valid until it's given back
+        // (checked again in giveBack(_:for:)), since a view could currently be displaying it.
         entriesByAdUnitId[adUnitId]?.removeAll { !$0.isLent && isExpired($0) }
     }
 
     private func trimRetainedAdvertisements(for adUnitId: String) {
         guard var entries = entriesByAdUnitId[adUnitId] else { return }
 
+        // Only idle entries can be dropped to respect maximumRetainedAdvertisements, for the
+        // same reason as purgeExpiredEntries(for:): a lent entry may still be on screen. If
+        // every entry is lent, the cap is exceeded until one is given back.
         while entries.count > configuration.maximumRetainedAdvertisements,
               let availableEntryIndex = entries.firstIndex(where: { !$0.isLent }) {
             entries.remove(at: availableEntryIndex)
@@ -232,6 +242,11 @@ extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
             return
         }
 
+        // A load that came back completely empty is treated as terminal rather than retried
+        // automatically: retrying here on every failure would spin an unbounded stream of paid
+        // requests against an ad unit that's persistently failing. Every waiter is failed
+        // instead, and the next retry only happens if the caller's own onAppear-driven
+        // loadAd(with:) runs lend(for:requester:onChange:) again.
         waitersByAdUnitId[adUnitId] = []
 
         let error = lastError ?? NativeAdvertisementLoaderError.noAdvertisementReceived

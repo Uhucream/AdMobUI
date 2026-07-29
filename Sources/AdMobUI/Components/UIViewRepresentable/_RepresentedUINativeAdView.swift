@@ -231,6 +231,9 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     }
 
     internal func dismantleUIView(_ nativeAdView: _UINativeAdView, context: Context) {
+        // An ad returned to a shared NativeAdvertisementLoader can be lent straight back out to
+        // a different view; unregistering here keeps that reuse from carrying over this view's
+        // asset-view associations.
         nativeAdView.nativeAd?.unregisterAdView()
     }
 
