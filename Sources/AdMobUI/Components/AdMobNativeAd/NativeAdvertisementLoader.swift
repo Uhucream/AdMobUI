@@ -215,9 +215,6 @@ extension NativeAdvertisementLoader {
         startLoad(for: adUnitId)
     }
 
-    // The pool's own AdLoader, kept separate from the one NativeAdvertisementBinder drives for a
-    // view that supplied its own request. Everything loaded here uses this loader's configuration
-    // and goes into the shared inventory rather than to one specific view.
     @MainActor
     private func startLoad(for adUnitId: String) {
         var options = configuration.options
