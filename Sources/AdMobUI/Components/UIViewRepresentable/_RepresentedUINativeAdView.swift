@@ -37,11 +37,11 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     }
 
     internal func updateUIView(_ nativeAdView: _UINativeAdView, context: Context) {
-        guard let nativeAd else { return }
-
         // Keep the coordinator's callbacks current even when the rest of this update is
         // skipped below (this replaces what `.equatable()` used to do at the view level).
         context.coordinator.parent = self
+
+        guard let nativeAd else { return }
 
         let hasSameAdvertisement: Bool = nativeAdView.nativeAd === nativeAd
         let hasSameElementFrames: Bool =
