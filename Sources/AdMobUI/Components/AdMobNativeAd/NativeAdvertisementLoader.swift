@@ -158,7 +158,9 @@ extension NativeAdvertisementLoader {
 
         serveWaiterIfPossible(for: adUnitId)
     }
+}
 
+extension NativeAdvertisementLoader {
     /// Requests enough advertisements for `adUnitId` to have `count` ready ahead of time, so
     /// views that appear afterward can be served immediately instead of triggering a fresh load.
     ///
@@ -261,7 +263,7 @@ extension NativeAdvertisementLoader {
     }
 }
 
-extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
+extension NativeAdvertisementLoader: NativeAdLoaderDelegate {
     public func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
         let adUnitId = adLoader.adUnitID
 
