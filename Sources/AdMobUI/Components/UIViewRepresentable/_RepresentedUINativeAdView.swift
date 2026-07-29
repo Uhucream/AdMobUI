@@ -14,8 +14,6 @@ internal struct ElementFrame {
     let frame: CGRect
 }
 
-extension ElementFrame: Equatable {}
-
 internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     typealias UIViewType = _UINativeAdView
 
@@ -39,6 +37,17 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
 
     internal func updateUIView(_ nativeAdView: _UINativeAdView, context: Context) {
         guard let nativeAd else { return }
+
+        // Keep the coordinator's callbacks current even when the rest of this update is
+        // skipped below (this replaces what `.equatable()` used to do at the view level).
+        context.coordinator.parent = self
+
+        let hasSameAdvertisement: Bool = nativeAdView.nativeAd === nativeAd
+        let hasSameElementFrames: Bool =
+            nativeAdView.lastAppliedElementFrames.count == elementFrames.count
+            && elementFrames.allSatisfy { nativeAdView.lastAppliedElementFrames[$0.elementType] == $0.frame }
+
+        guard !(hasSameAdvertisement && hasSameElementFrames) else { return }
 
         let currentElementTypes: Set<NativeAdChildViewType> = Set(elementFrames.map(\.elementType))
         let staleElementTypes: Set<NativeAdChildViewType> = Set(nativeAdView.lastAppliedElementFrames.keys)
@@ -209,16 +218,16 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
             nativeAdView.lastAppliedElementFrames[type] = frame
         }
 
-        // Refresh the coordinator with the latest representable value so the event
-        // callbacks never go stale, then wire the delegate. The NativeAd instance only
-        // exists after the async load completes, so this is the only point where its
-        // delegate can be set.
-        context.coordinator.parent = self
-
+        // The NativeAd instance only exists after the async load completes, so this is
+        // the only point where its delegate can be set.
         nativeAd.delegate = context.coordinator
 
         // Set the NativeAd
         nativeAdView.nativeAd = nativeAd
+    }
+
+    internal func dismantleUIView(_ nativeAdView: _UINativeAdView, context: Context) {
+        nativeAdView.nativeAd?.unregisterAdView()
     }
 
     internal func makeCoordinator() -> Coordinator {
@@ -313,23 +322,6 @@ extension _RepresentedUINativeAdView {
         case .adChoices:
             nativeAdView.adChoicesView?.removeFromSuperview()
             nativeAdView.adChoicesView = nil
-        }
-    }
-}
-
-extension _RepresentedUINativeAdView: Equatable {
-    internal static func == (lhs: _RepresentedUINativeAdView, rhs: _RepresentedUINativeAdView) -> Bool {
-        guard lhs.elementFrames == rhs.elementFrames else { return false }
-
-        switch (lhs.nativeAd, rhs.nativeAd) {
-        case (nil, nil):
-            return true
-
-        case let (lhsNativeAd?, rhsNativeAd?):
-            return lhsNativeAd === rhsNativeAd
-
-        default:
-            return false
         }
     }
 }

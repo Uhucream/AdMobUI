@@ -62,7 +62,6 @@ public struct NativeAdvertisement<AdContent: View>: View {
                         onDismissAction: onDismissAction,
                         onAdvertisementMutedAction: onAdvertisementMutedAction
                     )
-                    .equatable()
                     .frame(width: overlayGeometry.size.width, height: overlayGeometry.size.height)
                 }
             }
