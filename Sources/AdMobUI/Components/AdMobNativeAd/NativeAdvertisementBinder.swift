@@ -61,7 +61,14 @@ internal class NativeAdvertisementBinder: ObservableObject {
             onFailure: { [weak self] _, error in
                 self?.nativeAdvertisementPhase = .failure(error)
             },
-            onFinishLoading: { _ in }
+            onFinishLoading: { [weak self] _ in
+                // The SDK documents at least one of didReceive/didFailToReceiveAdWithError
+                // firing per request, but doesn't guarantee it; without this, a request that
+                // finishes without either would leave the phase stuck at .empty forever.
+                guard case .empty = self?.nativeAdvertisementPhase else { return }
+
+                self?.nativeAdvertisementPhase = .failure(NativeAdvertisementLoaderError.noAdvertisementReceived)
+            }
         )
 
         adLoader.delegate = delegateAdaptor
