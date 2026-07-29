@@ -18,80 +18,15 @@ internal class NativeAdvertisementBinder: ObservableObject {
     }
 
     private let adUnitId: String
-    private let source: Source?
     private var advertisementLoader: NativeAdvertisementLoader?
-
-    // AdLoader.delegate is weak; nothing else holds a strong reference to the adaptor, so this
-    // exists purely to keep it alive for as long as this AdLoader is in use, not to be read back.
-    private var delegateAdaptor: NativeAdLoaderDelegateAdaptor?
-
-    private var hasStartedOwnLoad: Bool = false
 
     // deinit is nonisolated even on a @MainActor class, and @Published's synthesized accessor
     // can't be read from there (a plain stored property can). This mirrors just the part deinit
     // needs to decide between giving an advertisement back and cancelling a pending request.
     private var currentNativeAd: NativeAd?
 
-    // Own-request path: drives its own AdLoader rather than borrowing from a shared
-    // NativeAdvertisementLoader, because that loader's advertisements were all loaded with the
-    // loader's own request — handing one to a view that asked for a different request would
-    // silently ignore what was asked for.
-    //
-    // A dedicated NativeAdvertisementLoader instance is deliberately not used here either: its
-    // init sets up pool machinery (expiry sweeps, a memory-warning subscription, and a repeating
-    // 5 minute timer) that a single one-off advertisement has no use for.
-    init(
-        adUnitId: String,
-        request: Request,
-        options: [GADAdLoaderOptions]
-    ) {
-        self.adUnitId = adUnitId
-
-        let adLoader = AdLoader(
-            adUnitID: adUnitId,
-            rootViewController: nil,
-            adTypes: [.native],
-            options: options
-        )
-
-        self.source = Source(adLoader: adLoader, request: request)
-
-        // Every stored property without a default is set by this point, so self can be
-        // captured now.
-        let delegateAdaptor = NativeAdLoaderDelegateAdaptor(
-            onReceive: { [weak self] _, nativeAd in
-                self?.nativeAdvertisementPhase = .success(nativeAd)
-            },
-            onFailure: { [weak self] _, error in
-                self?.nativeAdvertisementPhase = .failure(error)
-            },
-            onFinishLoading: { [weak self] _ in
-                // The SDK documents at least one of didReceive/didFailToReceiveAdWithError
-                // firing per request, but doesn't guarantee it; without this, a request that
-                // finishes without either would leave the phase stuck at .empty forever.
-                //
-                // .empty already doubles as "not started" and "in flight" since
-                // NativeAdvertisementPhase has no case of its own for "loading". Leaving a
-                // finished-but-empty result there too would erase the distinction between
-                // those three states for callers; .failure keeps "the attempt is settled"
-                // a meaningful boundary.
-                guard case .empty = self?.nativeAdvertisementPhase else { return }
-
-                self?.nativeAdvertisementPhase = .failure(NativeAdvertisementLoaderError.noAdvertisementReceived)
-            }
-        )
-
-        adLoader.delegate = delegateAdaptor
-        self.delegateAdaptor = delegateAdaptor
-    }
-
-    // Shared-pool path: borrows an already-loaded advertisement from a NativeAdvertisementLoader
-    // instead of requesting one, so a view reappearing in a List or LazyVStack doesn't send
-    // another billed request. The loader arrives later, via loadAd(with:), because SwiftUI's
-    // environment isn't readable until the view appears.
     init(adUnitId: String) {
         self.adUnitId = adUnitId
-        self.source = nil
     }
 
     deinit {
@@ -115,35 +50,13 @@ internal class NativeAdvertisementBinder: ObservableObject {
 }
 
 extension NativeAdvertisementBinder {
-    fileprivate struct Source {
-        let adLoader: AdLoader
-        let request: Request
-    }
-}
-
-extension NativeAdvertisementBinder {
-    func loadAd(with loader: NativeAdvertisementLoader?) {
-        if let source {
-            // Without this guard, every onAppear (e.g. a NavigationStack pop or TabView switch
-            // bringing this view back) would call load(_:) again and send another billed
-            // request, even though the first one already succeeded or is still in flight.
-            guard !hasStartedOwnLoad else { return }
-
-            hasStartedOwnLoad = true
-            source.adLoader.load(source.request)
-
-            return
-        }
-
+    func loadAd(with loader: NativeAdvertisementLoader) {
+        // Asking again once a loader is bound would duplicate a billed request.
         guard advertisementLoader == nil else { return }
 
-        // Reaching .shared only here keeps it from being created for a view on the own-request
-        // path above, which never borrows from a pool.
-        let sharedLoader: NativeAdvertisementLoader = loader ?? .shared
+        advertisementLoader = loader
 
-        advertisementLoader = sharedLoader
-
-        sharedLoader.lend(for: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
+        loader.lend(for: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
             self?.nativeAdvertisementPhase = phase
         }
     }

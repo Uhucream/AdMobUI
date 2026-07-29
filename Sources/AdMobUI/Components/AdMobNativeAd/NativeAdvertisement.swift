@@ -6,7 +6,6 @@
 //
 //
 
-import GoogleMobileAds
 import SwiftUI
 
 public struct NativeAdvertisement<AdContent: View>: View {
@@ -25,21 +24,20 @@ public struct NativeAdvertisement<AdContent: View>: View {
     private var onDismissAction: (() -> Void)?
     private var onAdvertisementMutedAction: (() -> Void)?
 
+    /// Displays a native ad for `adUnitId`, borrowing an already-loaded advertisement rather than
+    /// requesting a new one whenever the loader has one available.
+    ///
+    /// Advertisements come from the ``NativeAdvertisementLoader`` applied to this view's subtree,
+    /// or from ``NativeAdvertisementLoader/shared`` when none has been applied.
     public init(
         adUnitId: String,
-        request: Request,
-        options: [GADAdLoaderOptions],
         @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
     ) {
         self.adUnitId = adUnitId
         self.adContent = adContent
 
         _nativeAdvertisementBinder = StateObject(
-            wrappedValue: NativeAdvertisementBinder(
-                adUnitId: adUnitId,
-                request: request,
-                options: options
-            )
+            wrappedValue: NativeAdvertisementBinder(adUnitId: adUnitId)
         )
     }
 
@@ -69,43 +67,8 @@ public struct NativeAdvertisement<AdContent: View>: View {
                 }
             }
             .onAppear {
-                nativeAdvertisementBinder.loadAd(with: nativeAdvertisementLoader)
+                nativeAdvertisementBinder.loadAd(with: nativeAdvertisementLoader ?? .shared)
             }
-    }
-}
-
-extension NativeAdvertisement {
-    /// Displays a native ad for `adUnitId`, borrowing an already-loaded advertisement from the
-    /// shared ``NativeAdvertisementLoader`` when one is available instead of always requesting a
-    /// new one.
-    public init(
-        adUnitId: String,
-        @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
-    ) {
-        self.adUnitId = adUnitId
-        self.adContent = adContent
-
-        _nativeAdvertisementBinder = StateObject(
-            wrappedValue: NativeAdvertisementBinder(adUnitId: adUnitId)
-        )
-    }
-
-    /// Displays a native ad loaded with a caller-supplied request.
-    ///
-    /// This view drives its own request instead of borrowing from the shared
-    /// ``NativeAdvertisementLoader``, since an advertisement from the shared loader was loaded
-    /// with the loader's own request and reusing it here would silently ignore this one.
-    public init(
-        adUnitId: String,
-        request: Request,
-        @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
-    ) {
-        self.init(
-            adUnitId: adUnitId,
-            request: request,
-            options: [GADAdLoaderOptions()],
-            adContent: adContent
-        )
     }
 }
 

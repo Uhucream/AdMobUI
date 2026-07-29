@@ -9,8 +9,8 @@
 import GoogleMobileAds
 
 // AdLoader's delegate is an Objective-C protocol, which only an NSObject subclass can satisfy.
-// This adaptor absorbs that requirement so NativeAdvertisementLoader and NativeAdvertisementBinder
-// don't need to inherit from NSObject themselves just to become an AdLoader's delegate.
+// This adaptor absorbs that requirement so NativeAdvertisementLoader doesn't need to inherit from
+// NSObject itself just to become an AdLoader's delegate.
 @MainActor
 internal final class NativeAdLoaderDelegateAdaptor: NSObject {
     private let onReceive: (_ adLoader: AdLoader, _ nativeAd: NativeAd) -> Void

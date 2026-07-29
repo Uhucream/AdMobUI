@@ -54,19 +54,22 @@ struct ContentView: View {
 
 ## Customizing the request
 
-`NativeAdvertisement` provides progressively disclosed initializers. Start with just an ad unit id, and reach for a custom `Request` (and ad loader options) only when you need them.
+A custom `Request` (and ad loader options) belongs on a `NativeAdvertisementLoader`, which you then apply to the views that should use it.
 
 ```swift
-// Custom request
-NativeAdvertisement(adUnitId: "ca-pub-xxxxxx", request: myRequest) { advertisementPhase in
-    // ....
-}
+var configuration: NativeAdvertisementLoader.Configuration = .default
+configuration.request = myRequest
+configuration.options = myOptions
 
-// Custom request and ad loader options
-NativeAdvertisement(adUnitId: "ca-pub-xxxxxx", request: myRequest, options: myOptions) { advertisementPhase in
+let loader = NativeAdvertisementLoader(configuration: configuration)
+
+NativeAdvertisement(adUnitId: "ca-pub-xxxxxx") { advertisementPhase in
     // ....
 }
+.nativeAdvertisementLoader(loader)
 ```
+
+Hold the loader somewhere that outlives the views using it. A loader created inline in `body` is rebuilt every time the view is, which throws away its loaded ads along with it.
 
 ## Ad event callbacks
 
@@ -112,7 +115,7 @@ List {
 
 `numberOfAdvertisements` (1 through 5) requests several ads in a single network round trip. Requesting more than one only serves Google ads — mediated networks don't participate in a multi-ad request — so raise it only when that trade-off is acceptable. Ads are dropped after roughly an hour, matching AdMob's own validity window for a loaded native ad; the loader also sweeps for expired ads on a timer and when the app returns to the foreground, so an ad unit id nobody happens to touch doesn't sit stale indefinitely.
 
-Passing an explicit `request:` (and `options:`) to `NativeAdvertisement` opts that view out of the shared loader: the loader's ads were all loaded with the loader's own request, so reusing one for a view that asked for a different request would silently ignore it. Use the shared loader for a feed, and the `request:` initializers for one-off ads with their own targeting.
+A loader's ads are all loaded with that loader's own `request`, so views needing different targeting need a loader of their own. Apply one with `.nativeAdvertisementLoader(_:)` on just those views, and leave the rest of the tree on the shared loader.
 
 ### Precaching a list of ads
 
