@@ -29,8 +29,9 @@ public struct NativeAdvertisement<AdContent: View>: View {
     /// A view that reappears without a new identity, such as scrolling back into view in a
     /// `List` or `LazyVStack`, reuses the ad it already has instead of sending another request.
     ///
-    /// Apply `.nativeAdvertisementLoader(_:)` to this view's subtree to choose which loader
-    /// supplies the ad; ``NativeAdvertisementLoader/shared`` is used otherwise.
+    /// The ad comes from the ``NativeAdvertisementLoader`` applied to this view's subtree with
+    /// `.nativeAdvertisementLoader(_:)`, or from ``NativeAdvertisementLoader/shared`` when none
+    /// has been applied.
     public init(
         adUnitId: String,
         @ViewBuilder adContent: @escaping (_ advertisementPhase: NativeAdvertisementPhase) -> AdContent
