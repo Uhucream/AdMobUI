@@ -246,6 +246,71 @@ Documentation comments using /// are abstract documentation intended for users o
   ```
 
 - Do not use doc comments to arbitrarily prescribe what a property is "used for." How it is used is up to the caller. Only factual information should be written, such as how the value is defined or the conditions under which it becomes nil. Only when a usage should be avoided may you document that with warning-level notation such as - Important:.
+- Describe the effect on the caller, not the internal mechanism. Avoid vocabulary that only makes sense with knowledge of the implementation (internal collaborator names, pattern names such as "lend"/"borrow"/"pool").
+
+  ```swift
+  // Good
+  /// A view that reappears without a new identity reuses the ad it already has instead of
+  /// sending another request.
+
+  // Bad
+  /// Borrows an already-loaded advertisement from the pool rather than requesting a new one.
+  ```
+
+- Write declarative statements describing what happens, not instructions telling the reader what to do. Match Apple's own DocC discussion style (e.g. `AsyncImage`'s documentation): state facts about behavior, not directions.
+
+  ```swift
+  // Good
+  /// The ad comes from the loader applied to this view's subtree, or from `.shared` when none
+  /// has been applied.
+
+  // Bad
+  /// Apply a loader to this view's subtree to choose which loader supplies the ad.
+  ```
+
+## Regular Comments (//)
+
+A comment justifies why this implementation was chosen over an available alternative. It is not a memo of what you learned while reading, writing, or debugging the code, and it must not restate a fact already evident from the code itself (e.g. that a function's signature is forced by a protocol requirement — that's visible from the `: SomeProtocol` conformance already). If there was no real choice being made, no comment is needed at all.
+
+- Do not narrate the history of a change (what the code used to do, why it was rewritten, what happens if you write it a different way). That belongs in a commit message, not the code.
+
+  ```swift
+  // Bad — narrates the fix instead of justifying the current code
+  // Writing this as an instance method taking context: compiles, but satisfies nothing and
+  // never runs.
+  internal static func dismantleUIView(_ nativeAdView: _UINativeAdView, coordinator: Coordinator) {
+
+  // Also bad — restates what conforming to UIViewRepresentable already makes obvious
+  // The static + coordinator: signature is required to satisfy UIViewRepresentable's requirement.
+  internal static func dismantleUIView(_ nativeAdView: _UINativeAdView, coordinator: Coordinator) {
+
+  // Good — no comment. The signature is dictated entirely by the protocol; there is no
+  // implementation choice here to justify.
+  internal static func dismantleUIView(_ nativeAdView: _UINativeAdView, coordinator: Coordinator) {
+  ```
+
+  ```swift
+  // Good — a real design choice with a non-obvious consequence, worth justifying
+  // A value below 1 would make ensureLoadInFlight's "is a slot free" check permanently fail,
+  // so a waiter registered in lend(for:requester:onChange:) would never be served.
+  private var effectiveMaximumConcurrentLoads: Int {
+      max(configuration.maximumConcurrentLoads, 1)
+  }
+  ```
+
+- Do not name a specific consumer type in a comment on general-purpose code. Describe the general reason instead, so the comment doesn't go stale when callers change.
+
+  ```swift
+  // Good
+  // AdLoader.delegate is weak; nothing else holds a strong reference to the adaptor, so this
+  // exists purely to keep it alive for as long as this AdLoader is in use.
+  private var delegateAdaptor: NativeAdLoaderDelegateAdaptor?
+
+  // Bad
+  // This adaptor absorbs that requirement so NativeAdvertisementLoader doesn't need to inherit
+  // from NSObject itself.
+  private var delegateAdaptor: NativeAdLoaderDelegateAdaptor?
+  ```
 
 ## MARK Comments
 
