@@ -207,7 +207,7 @@ extension NativeAdvertisementLoader {
 }
 
 extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
-    func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
+    public func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
         let adUnitId = adLoader.adUnitID
 
         receivedAdvertisementCountsByAdLoader[ObjectIdentifier(adLoader), default: 0] += 1
@@ -219,11 +219,11 @@ extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
         serveWaiterIfPossible(forAdUnitId: adUnitId)
     }
 
-    func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: any Error) {
+    public func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: any Error) {
         lastErrorsByAdLoader[ObjectIdentifier(adLoader)] = error
     }
 
-    func adLoaderDidFinishLoading(_ adLoader: AdLoader) {
+    public func adLoaderDidFinishLoading(_ adLoader: AdLoader) {
         let adUnitId = adLoader.adUnitID
         let receivedCount = receivedAdvertisementCountsByAdLoader.removeValue(forKey: ObjectIdentifier(adLoader)) ?? 0
         let lastError = lastErrorsByAdLoader.removeValue(forKey: ObjectIdentifier(adLoader))
