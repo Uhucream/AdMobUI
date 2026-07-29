@@ -46,15 +46,9 @@ public struct NativeAdvertisement<AdContent: View>: View {
 
     public var body: some View {
         adContent(nativeAdvertisementBinder.nativeAdvertisementPhase)
-            .overlayPreferenceValue(TypedAnchorBoundsPreferenceKey.self, alignment: .center) { namedAnchors in
+            .coordinateSpace(name: NativeAdvertisementCoordinateSpaceName())
+            .overlayPreferenceValue(ElementFramePreferenceKey.self, alignment: .center) { elementFrames in
                 GeometryReader { overlayGeometry in
-                    let elementFrames: [ElementFrame] = namedAnchors.map {
-                        .init(
-                            elementType: $0.viewType,
-                            frame: overlayGeometry[$0.anchor]
-                        )
-                    }
-
                     _RepresentedUINativeAdView(
                         nativeAd: nativeAdvertisementBinder.nativeAdvertisementPhase.nativeAd,
                         elementFrames: elementFrames,

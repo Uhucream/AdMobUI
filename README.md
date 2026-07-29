@@ -8,7 +8,7 @@ AdMobUI works by overlaying an invisible [`NativeAdView`](https://developers.goo
 
 Each element of the native ad provided to the closure can be annotated with the `nativeAdElement` modifier, which automatically aligns and sizes the transparent [`NativeAdView`](https://developers.google.com/admob/ios/api/reference/Classes/GADNativeAdView) overlay.  
 
-Internally, `nativeAdElement` uses `anchorPreference` and `overlayPreferenceValue` to capture the bounds of the annotated elements, enabling the layout of [`NativeAdView`](https://developers.google.com/admob/ios/api/reference/Classes/GADNativeAdView) to be computed automatically.
+Internally, `nativeAdElement` measures each annotated element in a coordinate space named on the `NativeAdvertisement` container and reports it through a `PreferenceKey`, enabling the layout of [`NativeAdView`](https://developers.google.com/admob/ios/api/reference/Classes/GADNativeAdView) to be computed automatically.
 
 ## Example
 

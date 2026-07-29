@@ -10,9 +10,22 @@ import SwiftUI
 
 extension View {
     public func nativeAdElement(_ elementViewType: NativeAdChildViewType) -> some View {
-        anchorPreference(key: TypedAnchorBoundsPreferenceKey.self, value: .bounds) { anchor in
-            return [TypedAnchor(viewType: elementViewType, anchor: anchor)]
-        }
+        background(
+            GeometryReader { elementGeometry in
+                Color.clear
+                    .preference(
+                        key: ElementFramePreferenceKey.self,
+                        value: [
+                            ElementFrame(
+                                elementType: elementViewType,
+                                frame: elementGeometry.frame(
+                                    in: .named(NativeAdvertisementCoordinateSpaceName())
+                                )
+                            )
+                        ]
+                    )
+            }
+        )
     }
 }
 

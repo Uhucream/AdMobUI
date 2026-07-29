@@ -9,11 +9,6 @@
 import GoogleMobileAds
 import SwiftUI
 
-internal struct ElementFrame {
-    let elementType: NativeAdChildViewType
-    let frame: CGRect
-}
-
 internal struct _RepresentedUINativeAdView: UIViewRepresentable {
     typealias UIViewType = _UINativeAdView
 
@@ -54,13 +49,18 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
         let staleElementTypes: Set<NativeAdChildViewType> = Set(nativeAdView.lastAppliedElementFrames.keys)
             .subtracting(currentElementTypes)
 
+        // Adding or removing an asset view changes which views the ad has to be registered
+        // against; moving one is settled entirely by the constraint updates below, so it must
+        // not also trigger a re-registration.
+        var hasChangedAssetViews: Bool = !staleElementTypes.isEmpty
+
         // Remove elements no longer present in the current SwiftUI layout, so a stale
         // tracking view doesn't keep sitting at its last known position/size and
         // doesn't keep being registered as a clickable/trackable asset on the NativeAd.
         staleElementTypes.forEach { type in
             removeElementView(for: type, from: nativeAdView)
 
-            NSLayoutConstraint.deactivate(nativeAdView.elementFittingConstraints[type] ?? [])
+            NSLayoutConstraint.deactivate(nativeAdView.elementFittingConstraints[type]?.allConstraints ?? [])
             nativeAdView.elementFittingConstraints[type] = nil
             nativeAdView.lastAppliedElementFrames[type] = nil
         }
@@ -69,6 +69,12 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
         elementFrames.forEach { elementFrame in
             let type: NativeAdChildViewType = elementFrame.elementType
             let frame: CGRect = elementFrame.frame
+
+            // headlineView, callToActionView, etc. are only ever set together with
+            // lastAppliedElementFrames[type] below, and cleared together with it during stale
+            // removal above, so its absence here is exactly the condition under which the
+            // switch below takes its "create a new view" branch.
+            let isNewAssetView: Bool = nativeAdView.lastAppliedElementFrames[type] == nil
 
             let view: UIView = {
                 switch type {
@@ -176,9 +182,12 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
                         nativeAdView.addSubview(mediaView)
                     }
 
-                    // Unlike the other asset views, the media view renders its content
-                    // itself, so it needs the media content assigned.
-                    mediaView.mediaContent = nativeAd.mediaContent
+                    // Unlike the other asset views, the media view renders its content itself.
+                    // Reassigning the same content would restart whatever it's currently
+                    // playing, so this only takes effect when the content actually changed.
+                    if mediaView.mediaContent !== nativeAd.mediaContent {
+                        mediaView.mediaContent = nativeAd.mediaContent
+                    }
 
                     return mediaView
                 case .adChoices:
@@ -200,28 +209,44 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
 
             view.translatesAutoresizingMaskIntoConstraints = false
 
+            if isNewAssetView {
+                hasChangedAssetViews = true
+            }
+
             // Skip updating the constraints if the frame hasn't changed since the last time
             guard nativeAdView.lastAppliedElementFrames[type] != frame else { return }
 
-            // view.constraints only holds constraints owned by view itself (e.g. width/height);
-            // the leading/top constraints below are owned by their nearest common ancestor
-            // (nativeAdView), so the constraints we installed last time must be tracked explicitly.
-            NSLayoutConstraint.deactivate(nativeAdView.elementFittingConstraints[type] ?? [])
+            if let existingConstraints = nativeAdView.elementFittingConstraints[type] {
+                // A constraint's constant is mutable, so a moved element is settled by updating
+                // the four already-installed constraints instead of tearing them down and
+                // reinstalling a fresh set on every frame change.
+                existingConstraints.leading.constant = frame.origin.x
+                existingConstraints.top.constant = frame.origin.y
+                existingConstraints.width.constant = frame.width
+                existingConstraints.height.constant = frame.height
+            } else {
+                let fittingConstraints: ElementFittingConstraints = .init(
+                    leading: view.leadingAnchor.constraint(
+                        equalTo: nativeAdView.leadingAnchor, constant: frame.origin.x),
+                    top: view.topAnchor.constraint(
+                        equalTo: nativeAdView.topAnchor, constant: frame.origin.y),
+                    width: view.widthAnchor.constraint(equalToConstant: frame.width),
+                    height: view.heightAnchor.constraint(equalToConstant: frame.height)
+                )
 
-            let fittingConstraints: [NSLayoutConstraint] = [
-                view.leadingAnchor.constraint(
-                    equalTo: nativeAdView.leadingAnchor, constant: frame.origin.x),
-                view.topAnchor.constraint(
-                    equalTo: nativeAdView.topAnchor, constant: frame.origin.y),
-                view.widthAnchor.constraint(equalToConstant: frame.width),
-                view.heightAnchor.constraint(equalToConstant: frame.height),
-            ]
+                NSLayoutConstraint.activate(fittingConstraints.allConstraints)
 
-            NSLayoutConstraint.activate(fittingConstraints)
+                nativeAdView.elementFittingConstraints[type] = fittingConstraints
+            }
 
-            nativeAdView.elementFittingConstraints[type] = fittingConstraints
             nativeAdView.lastAppliedElementFrames[type] = frame
         }
+
+        // Registration is skipped when only an element's position changed, since re-running it
+        // repeats work the SDK already considers done (asset-view association, click/impression
+        // tracking, the AdChoices overlay) and can retrigger SDK-owned debug UI such as ad
+        // inspector.
+        guard !hasSameAdvertisement || hasChangedAssetViews else { return }
 
         // The NativeAd instance only exists after the async load completes, so this is
         // the only point where its delegate can be set.

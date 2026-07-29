@@ -11,7 +11,7 @@ import SwiftUI
 
 internal class _UINativeAdView: NativeAdView {
     internal var lastAppliedElementFrames: [NativeAdChildViewType: CGRect] = [:]
-    internal var elementFittingConstraints: [NativeAdChildViewType: [NSLayoutConstraint]] = [:]
+    internal var elementFittingConstraints: [NativeAdChildViewType: ElementFittingConstraints] = [:]
 
     private var superviewFittingConstraints: [NSLayoutConstraint] = []
 
