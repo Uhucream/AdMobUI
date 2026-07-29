@@ -13,11 +13,9 @@ import UIKit
 
 /// Loads native ads once and hands out already-loaded ones to `NativeAdvertisement` views that
 /// share the same ad unit id, instead of every view requesting its own.
-///
-/// - Important: Call every method on this type from the main thread. It keeps no
-///   synchronization of its own, matching how it's always driven from SwiftUI.
+@MainActor
 public final class NativeAdvertisementLoader: NSObject {
-    public static let shared: NativeAdvertisementLoader = .init(configuration: .default)
+    public nonisolated(unsafe) static let shared: NativeAdvertisementLoader = .init(configuration: .default)
 
     private static let maximumRetentionInterval: TimeInterval = 55 * 60
     private static let expirationSweepInterval: TimeInterval = 5 * 60

@@ -9,6 +9,7 @@
 import Combine
 import GoogleMobileAds
 
+@MainActor
 internal class NativeAdvertisementBinder: NSObject, ObservableObject {
     @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty
 
