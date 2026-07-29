@@ -13,9 +13,8 @@ import UIKit
 
 /// Loads native ads once and hands out already-loaded ones to `NativeAdvertisement` views that
 /// share the same ad unit id, instead of every view requesting its own.
-@MainActor
-public final class NativeAdvertisementLoader: NSObject {
-    public nonisolated(unsafe) static let shared: NativeAdvertisementLoader = .init(configuration: .default)
+public final class NativeAdvertisementLoader {
+    public static let shared: NativeAdvertisementLoader = .init(configuration: .default)
 
     private static let maximumRetentionInterval: TimeInterval = 55 * 60
     private static let expirationSweepInterval: TimeInterval = 5 * 60
@@ -25,19 +24,23 @@ public final class NativeAdvertisementLoader: NSObject {
     private var entriesByAdUnitId: [String: [Entry]] = [:]
     private var waitersByAdUnitId: [String: [Waiter]] = [:]
     private var activeAdLoadersByAdUnitId: [String: [AdLoader]] = [:]
+    private var delegateAdaptorsByAdLoader: [ObjectIdentifier: NativeAdLoaderDelegateAdaptor] = [:]
     private var receivedAdvertisementCountsByAdLoader: [ObjectIdentifier: Int] = [:]
     private var lastErrorsByAdLoader: [ObjectIdentifier: any Error] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
+    // This initializer only stores configuration and wires up Combine subscriptions; it never
+    // touches the state the rest of this type protects with @MainActor, so it's left nonisolated
+    // deliberately, keeping `shared`'s initializer free of any actor-isolation workaround.
     public init(configuration: Configuration) {
         self.configuration = configuration
-
-        super.init()
 
         NotificationCenter.default
             .publisher(for: UIApplication.didReceiveMemoryWarningNotification)
             .sink { [weak self] _ in
-                self?.discardIdleAdvertisements()
+                Task { @MainActor in
+                    self?.discardIdleAdvertisements()
+                }
             }
             .store(in: &cancellables)
 
@@ -48,14 +51,18 @@ public final class NativeAdvertisementLoader: NSObject {
         NotificationCenter.default
             .publisher(for: UIApplication.willEnterForegroundNotification)
             .sink { [weak self] _ in
-                self?.purgeAllExpiredEntries()
+                Task { @MainActor in
+                    self?.purgeAllExpiredEntries()
+                }
             }
             .store(in: &cancellables)
 
         Timer.publish(every: Self.expirationSweepInterval, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.purgeAllExpiredEntries()
+                Task { @MainActor in
+                    self?.purgeAllExpiredEntries()
+                }
             }
             .store(in: &cancellables)
     }
@@ -109,6 +116,7 @@ extension NativeAdvertisementLoader {
     /// registers `onChange` to be called once a load started on the caller's behalf finishes.
     ///
     /// `onChange` may be called synchronously, before this method returns.
+    @MainActor
     func lend(
         for adUnitId: String,
         requester: ObjectIdentifier,
@@ -133,12 +141,14 @@ extension NativeAdvertisementLoader {
 
     /// Withdraws a still-waiting `lend(for:requester:onChange:)` call, so a load that finishes
     /// later doesn't hand its result to a requester that's no longer interested.
+    @MainActor
     func cancelLending(requester: ObjectIdentifier, for adUnitId: String) {
         waitersByAdUnitId[adUnitId]?.removeAll { $0.requester == requester }
     }
 
     /// Returns an advertisement previously handed out by `lend(for:requester:onChange:)`, making
     /// it available to the next requester for the same ad unit id.
+    @MainActor
     func giveBack(_ nativeAd: NativeAd, for adUnitId: String) {
         guard let matchingEntryIndex = entriesByAdUnitId[adUnitId]?.firstIndex(where: { $0.nativeAd === nativeAd }) else {
             return
@@ -165,6 +175,7 @@ extension NativeAdvertisementLoader {
     /// Requests as many advertisements for `adUnitId` as this loader's
     /// ``Configuration/maximumRetainedAdvertisements`` allows, so views that appear afterward
     /// can be served immediately instead of triggering a fresh load.
+    @MainActor
     public func prefetch(for adUnitId: String) {
         purgeExpiredEntries(for: adUnitId)
 
@@ -176,6 +187,7 @@ extension NativeAdvertisementLoader {
 }
 
 extension NativeAdvertisementLoader {
+    @MainActor
     private func serveWaiterIfPossible(for adUnitId: String) {
         guard let waiter = waitersByAdUnitId[adUnitId]?.first else { return }
         guard let availableEntryIndex = entriesByAdUnitId[adUnitId]?.firstIndex(where: { !$0.isLent }) else {
@@ -188,6 +200,7 @@ extension NativeAdvertisementLoader {
         waiter.onChange(.success(entriesByAdUnitId[adUnitId]![availableEntryIndex].nativeAd))
     }
 
+    @MainActor
     private func ensureLoadInFlight(for adUnitId: String) {
         guard !(waitersByAdUnitId[adUnitId]?.isEmpty ?? true) else { return }
 
@@ -198,6 +211,7 @@ extension NativeAdvertisementLoader {
         startLoad(for: adUnitId)
     }
 
+    @MainActor
     private func startLoad(for adUnitId: String) {
         var options = configuration.options
 
@@ -215,19 +229,34 @@ extension NativeAdvertisementLoader {
             options: options
         )
 
-        adLoader.delegate = self
+        let delegateAdaptor = NativeAdLoaderDelegateAdaptor(
+            onReceive: { [weak self] adLoader, nativeAd in
+                self?.handleReceivedAdvertisement(nativeAd, from: adLoader)
+            },
+            onFailure: { [weak self] adLoader, error in
+                self?.handleFailure(error, from: adLoader)
+            },
+            onFinishLoading: { [weak self] adLoader in
+                self?.handleAdLoaderDidFinishLoading(adLoader)
+            }
+        )
 
+        adLoader.delegate = delegateAdaptor
+
+        delegateAdaptorsByAdLoader[ObjectIdentifier(adLoader)] = delegateAdaptor
         activeAdLoadersByAdUnitId[adUnitId, default: []].append(adLoader)
 
         adLoader.load(configuration.request)
     }
 
+    @MainActor
     private func purgeExpiredEntries(for adUnitId: String) {
         // Only idle entries are dropped here. A lent entry stays valid until it's given back
         // (checked again in giveBack(_:for:)), since a view could currently be displaying it.
         entriesByAdUnitId[adUnitId]?.removeAll { !$0.isLent && isExpired($0) }
     }
 
+    @MainActor
     private func trimRetainedAdvertisements(for adUnitId: String) {
         guard var entries = entriesByAdUnitId[adUnitId] else { return }
 
@@ -242,10 +271,15 @@ extension NativeAdvertisementLoader {
         entriesByAdUnitId[adUnitId] = entries
     }
 
+    // Reads only its parameter and a static constant, neither of which is shared mutable state,
+    // so unlike the rest of this extension it needs no actor isolation of its own.
     private func isExpired(_ entry: Entry) -> Bool {
         Date().timeIntervalSince(entry.loadedAt) > Self.maximumRetentionInterval
     }
 
+    // Both of these only read `configuration`, which is a `let` set once at init and never
+    // mutated afterward, so unlike the rest of this extension they need no actor isolation.
+    //
     // A cap below numberOfAdvertisements would trim members of a batch that was just paid for
     // the moment it arrives, so the effective cap never goes below the batch size configured.
     private var effectiveMaximumRetainedAdvertisements: Int {
@@ -266,6 +300,7 @@ extension NativeAdvertisementLoader {
         min(max(configuration.numberOfAdvertisements, 1), 5)
     }
 
+    @MainActor
     private func estimatedSupply(for adUnitId: String) -> Int {
         let idleCount = entriesByAdUnitId[adUnitId]?.reduce(0) { $0 + ($1.isLent ? 0 : 1) } ?? 0
         let inFlightCount = (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) * effectiveNumberOfAdvertisements
@@ -274,8 +309,9 @@ extension NativeAdvertisementLoader {
     }
 }
 
-extension NativeAdvertisementLoader: NativeAdLoaderDelegate {
-    public func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
+extension NativeAdvertisementLoader {
+    @MainActor
+    private func handleReceivedAdvertisement(_ nativeAd: NativeAd, from adLoader: AdLoader) {
         let adUnitId = adLoader.adUnitID
 
         receivedAdvertisementCountsByAdLoader[ObjectIdentifier(adLoader), default: 0] += 1
@@ -287,16 +323,19 @@ extension NativeAdvertisementLoader: NativeAdLoaderDelegate {
         serveWaiterIfPossible(for: adUnitId)
     }
 
-    public func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: any Error) {
+    @MainActor
+    private func handleFailure(_ error: any Error, from adLoader: AdLoader) {
         lastErrorsByAdLoader[ObjectIdentifier(adLoader)] = error
     }
 
-    public func adLoaderDidFinishLoading(_ adLoader: AdLoader) {
+    @MainActor
+    private func handleAdLoaderDidFinishLoading(_ adLoader: AdLoader) {
         let adUnitId = adLoader.adUnitID
         let receivedCount = receivedAdvertisementCountsByAdLoader.removeValue(forKey: ObjectIdentifier(adLoader)) ?? 0
         let lastError = lastErrorsByAdLoader.removeValue(forKey: ObjectIdentifier(adLoader))
 
         activeAdLoadersByAdUnitId[adUnitId]?.removeAll { $0 === adLoader }
+        delegateAdaptorsByAdLoader[ObjectIdentifier(adLoader)] = nil
 
         if receivedCount == 0, let waiters = waitersByAdUnitId[adUnitId], !waiters.isEmpty {
             // A load that came back completely empty is treated as terminal rather than
@@ -318,12 +357,14 @@ extension NativeAdvertisementLoader: NativeAdLoaderDelegate {
 }
 
 extension NativeAdvertisementLoader {
+    @MainActor
     private func discardIdleAdvertisements() {
         for adUnitId in entriesByAdUnitId.keys {
             entriesByAdUnitId[adUnitId]?.removeAll { !$0.isLent }
         }
     }
 
+    @MainActor
     private func purgeAllExpiredEntries() {
         for adUnitId in entriesByAdUnitId.keys {
             purgeExpiredEntries(for: adUnitId)

@@ -10,12 +10,13 @@ import Combine
 import GoogleMobileAds
 
 @MainActor
-internal class NativeAdvertisementBinder: NSObject, ObservableObject {
+internal class NativeAdvertisementBinder: ObservableObject {
     @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty
 
     private let adUnitId: String
     private let source: Source?
     private var advertisementLoader: NativeAdvertisementLoader?
+    private var delegateAdaptor: NativeAdLoaderDelegateAdaptor?
     private var hasStartedOwnLoad: Bool = false
 
     // Drives its own AdLoader with a caller-supplied request/options, bypassing the shared pool.
@@ -35,9 +36,20 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
 
         self.source = Source(adLoader: adLoader, request: request)
 
-        super.init()
+        // Every stored property without a default is set by this point, so self can be
+        // captured now.
+        let delegateAdaptor = NativeAdLoaderDelegateAdaptor(
+            onReceive: { [weak self] _, nativeAd in
+                self?.nativeAdvertisementPhase = .success(nativeAd)
+            },
+            onFailure: { [weak self] _, error in
+                self?.nativeAdvertisementPhase = .failure(error)
+            },
+            onFinishLoading: { _ in }
+        )
 
-        adLoader.delegate = self
+        adLoader.delegate = delegateAdaptor
+        self.delegateAdaptor = delegateAdaptor
     }
 
     // Borrows an already-loaded advertisement from a shared NativeAdvertisementLoader, supplied
@@ -45,8 +57,6 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
     init(adUnitId: String) {
         self.adUnitId = adUnitId
         self.source = nil
-
-        super.init()
     }
 
     deinit {
@@ -88,15 +98,5 @@ extension NativeAdvertisementBinder {
         loader.lend(for: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
             self?.nativeAdvertisementPhase = phase
         }
-    }
-}
-
-extension NativeAdvertisementBinder: NativeAdLoaderDelegate {
-    func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
-        self.nativeAdvertisementPhase = .success(nativeAd)
-    }
-
-    func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: any Error) {
-        self.nativeAdvertisementPhase = .failure(error)
     }
 }
