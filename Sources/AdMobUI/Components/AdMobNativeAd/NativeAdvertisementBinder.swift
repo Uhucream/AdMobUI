@@ -13,7 +13,7 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
     @Published private(set) var nativeAdvertisementPhase: NativeAdvertisementPhase = .empty
 
     private let adUnitId: String
-    private let ownSource: OwnSource?
+    private let source: Source?
     private var sharedLoader: NativeAdvertisementLoader?
 
     // Drives its own AdLoader with a caller-supplied request/options, bypassing the shared pool.
@@ -31,7 +31,7 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
             options: options
         )
 
-        self.ownSource = OwnSource(adLoader: adLoader, request: request)
+        self.source = Source(adLoader: adLoader, request: request)
 
         super.init()
 
@@ -39,10 +39,10 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
     }
 
     // Borrows an already-loaded advertisement from a shared NativeAdvertisementLoader, supplied
-    // later via loadAd(preferring:) once SwiftUI's environment is available.
+    // later via loadAd(with:) once SwiftUI's environment is available.
     init(adUnitId: String) {
         self.adUnitId = adUnitId
-        self.ownSource = nil
+        self.source = nil
 
         super.init()
     }
@@ -51,33 +51,33 @@ internal class NativeAdvertisementBinder: NSObject, ObservableObject {
         guard let sharedLoader else { return }
 
         if let nativeAd = nativeAdvertisementPhase.nativeAd {
-            sharedLoader.giveBack(nativeAd, forAdUnitId: adUnitId)
+            sharedLoader.giveBack(nativeAd, for: adUnitId)
         } else {
-            sharedLoader.cancelLending(requester: ObjectIdentifier(self), forAdUnitId: adUnitId)
+            sharedLoader.cancelLending(requester: ObjectIdentifier(self), for: adUnitId)
         }
     }
 }
 
 extension NativeAdvertisementBinder {
-    fileprivate struct OwnSource {
+    fileprivate struct Source {
         let adLoader: AdLoader
         let request: Request
     }
 }
 
 extension NativeAdvertisementBinder {
-    func loadAd(preferring sharedLoader: NativeAdvertisementLoader) {
-        if let ownSource {
-            ownSource.adLoader.load(ownSource.request)
+    func loadAd(with loader: NativeAdvertisementLoader) {
+        if let source {
+            source.adLoader.load(source.request)
 
             return
         }
 
-        guard self.sharedLoader == nil else { return }
+        guard sharedLoader == nil else { return }
 
-        self.sharedLoader = sharedLoader
+        sharedLoader = loader
 
-        sharedLoader.lend(forAdUnitId: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
+        loader.lend(for: adUnitId, requester: ObjectIdentifier(self)) { [weak self] phase in
             self?.nativeAdvertisementPhase = phase
         }
     }

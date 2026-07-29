@@ -89,16 +89,16 @@ extension NativeAdvertisementLoader {
     ///
     /// `onChange` may be called synchronously, before this method returns.
     func lend(
-        forAdUnitId adUnitId: String,
+        for adUnitId: String,
         requester: ObjectIdentifier,
         onChange: @escaping (NativeAdvertisementPhase) -> Void
     ) {
-        purgeExpiredEntries(forAdUnitId: adUnitId)
+        purgeExpiredEntries(for: adUnitId)
 
-        if let index = entriesByAdUnitId[adUnitId]?.firstIndex(where: { !$0.isLent }) {
-            entriesByAdUnitId[adUnitId]?[index].isLent = true
+        if let availableEntryIndex = entriesByAdUnitId[adUnitId]?.firstIndex(where: { !$0.isLent }) {
+            entriesByAdUnitId[adUnitId]?[availableEntryIndex].isLent = true
 
-            onChange(.success(entriesByAdUnitId[adUnitId]![index].nativeAd))
+            onChange(.success(entriesByAdUnitId[adUnitId]![availableEntryIndex].nativeAd))
 
             return
         }
@@ -107,56 +107,58 @@ extension NativeAdvertisementLoader {
             Waiter(requester: requester, onChange: onChange)
         )
 
-        ensureLoadInFlight(forAdUnitId: adUnitId)
+        ensureLoadInFlight(for: adUnitId)
     }
 
-    /// Withdraws a still-waiting `lend(forAdUnitId:requester:onChange:)` call, so a load that
-    /// finishes later doesn't hand its result to a requester that's no longer interested.
-    func cancelLending(requester: ObjectIdentifier, forAdUnitId adUnitId: String) {
+    /// Withdraws a still-waiting `lend(for:requester:onChange:)` call, so a load that finishes
+    /// later doesn't hand its result to a requester that's no longer interested.
+    func cancelLending(requester: ObjectIdentifier, for adUnitId: String) {
         waitersByAdUnitId[adUnitId]?.removeAll { $0.requester == requester }
     }
 
-    /// Returns an advertisement previously handed out by `lend(forAdUnitId:requester:onChange:)`,
-    /// making it available to the next requester for the same ad unit id.
-    func giveBack(_ nativeAd: NativeAd, forAdUnitId adUnitId: String) {
-        guard let index = entriesByAdUnitId[adUnitId]?.firstIndex(where: { $0.nativeAd === nativeAd }) else {
+    /// Returns an advertisement previously handed out by `lend(for:requester:onChange:)`, making
+    /// it available to the next requester for the same ad unit id.
+    func giveBack(_ nativeAd: NativeAd, for adUnitId: String) {
+        guard let matchingEntryIndex = entriesByAdUnitId[adUnitId]?.firstIndex(where: { $0.nativeAd === nativeAd }) else {
             return
         }
 
-        guard !isExpired(entriesByAdUnitId[adUnitId]![index]) else {
-            entriesByAdUnitId[adUnitId]?.remove(at: index)
+        guard !isExpired(entriesByAdUnitId[adUnitId]![matchingEntryIndex]) else {
+            entriesByAdUnitId[adUnitId]?.remove(at: matchingEntryIndex)
 
             return
         }
 
-        entriesByAdUnitId[adUnitId]?[index].isLent = false
+        entriesByAdUnitId[adUnitId]?[matchingEntryIndex].isLent = false
 
-        serveWaiterIfPossible(forAdUnitId: adUnitId)
+        serveWaiterIfPossible(for: adUnitId)
     }
 }
 
 extension NativeAdvertisementLoader {
-    private func serveWaiterIfPossible(forAdUnitId adUnitId: String) {
+    private func serveWaiterIfPossible(for adUnitId: String) {
         guard let waiter = waitersByAdUnitId[adUnitId]?.first else { return }
-        guard let index = entriesByAdUnitId[adUnitId]?.firstIndex(where: { !$0.isLent }) else { return }
+        guard let availableEntryIndex = entriesByAdUnitId[adUnitId]?.firstIndex(where: { !$0.isLent }) else {
+            return
+        }
 
         waitersByAdUnitId[adUnitId]?.removeFirst()
-        entriesByAdUnitId[adUnitId]?[index].isLent = true
+        entriesByAdUnitId[adUnitId]?[availableEntryIndex].isLent = true
 
-        waiter.onChange(.success(entriesByAdUnitId[adUnitId]![index].nativeAd))
+        waiter.onChange(.success(entriesByAdUnitId[adUnitId]![availableEntryIndex].nativeAd))
     }
 
-    private func ensureLoadInFlight(forAdUnitId adUnitId: String) {
+    private func ensureLoadInFlight(for adUnitId: String) {
         guard !(waitersByAdUnitId[adUnitId]?.isEmpty ?? true) else { return }
 
         guard (activeAdLoadersByAdUnitId[adUnitId]?.count ?? 0) < configuration.maximumConcurrentLoads else {
             return
         }
 
-        startLoad(forAdUnitId: adUnitId)
+        startLoad(for: adUnitId)
     }
 
-    private func startLoad(forAdUnitId adUnitId: String) {
+    private func startLoad(for adUnitId: String) {
         var options = configuration.options
 
         if configuration.numberOfAdvertisements > 1 {
@@ -180,16 +182,16 @@ extension NativeAdvertisementLoader {
         adLoader.load(configuration.request)
     }
 
-    private func purgeExpiredEntries(forAdUnitId adUnitId: String) {
+    private func purgeExpiredEntries(for adUnitId: String) {
         entriesByAdUnitId[adUnitId]?.removeAll { !$0.isLent && isExpired($0) }
     }
 
-    private func trimRetainedAdvertisements(forAdUnitId adUnitId: String) {
+    private func trimRetainedAdvertisements(for adUnitId: String) {
         guard var entries = entriesByAdUnitId[adUnitId] else { return }
 
         while entries.count > configuration.maximumRetainedAdvertisements,
-              let index = entries.firstIndex(where: { !$0.isLent }) {
-            entries.remove(at: index)
+              let availableEntryIndex = entries.firstIndex(where: { !$0.isLent }) {
+            entries.remove(at: availableEntryIndex)
         }
 
         entriesByAdUnitId[adUnitId] = entries
@@ -209,8 +211,8 @@ extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
             Entry(nativeAd: nativeAd, loadedAt: Date(), isLent: false)
         )
 
-        trimRetainedAdvertisements(forAdUnitId: adUnitId)
-        serveWaiterIfPossible(forAdUnitId: adUnitId)
+        trimRetainedAdvertisements(for: adUnitId)
+        serveWaiterIfPossible(for: adUnitId)
     }
 
     public func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: any Error) {
@@ -225,7 +227,7 @@ extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
         activeAdLoadersByAdUnitId[adUnitId]?.removeAll { $0 === adLoader }
 
         guard receivedCount == 0, let waiters = waitersByAdUnitId[adUnitId], !waiters.isEmpty else {
-            ensureLoadInFlight(forAdUnitId: adUnitId)
+            ensureLoadInFlight(for: adUnitId)
 
             return
         }

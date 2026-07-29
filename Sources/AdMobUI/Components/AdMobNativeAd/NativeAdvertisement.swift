@@ -67,7 +67,7 @@ public struct NativeAdvertisement<AdContent: View>: View {
                 }
             }
             .onAppear {
-                nativeAdvertisementBinder.loadAd(preferring: nativeAdvertisementLoader)
+                nativeAdvertisementBinder.loadAd(with: nativeAdvertisementLoader)
             }
     }
 }
