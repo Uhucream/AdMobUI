@@ -231,8 +231,6 @@ internal struct _RepresentedUINativeAdView: UIViewRepresentable {
         nativeAdView.nativeAd = nativeAd
     }
 
-    // UIViewRepresentable declares this as static with a coordinator: label. Writing it as an
-    // instance method taking context: compiles, but satisfies nothing and never runs.
     internal static func dismantleUIView(_ nativeAdView: _UINativeAdView, coordinator: Coordinator) {
         // An ad returned to a shared NativeAdvertisementLoader can be lent straight back out to
         // a different view; unregistering here keeps that reuse from carrying over this view's
