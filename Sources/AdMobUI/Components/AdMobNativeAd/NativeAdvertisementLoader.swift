@@ -6,15 +6,13 @@
 //
 //
 
+import Combine
 import Foundation
 import GoogleMobileAds
 import UIKit
 
 /// Loads native ads once and hands out already-loaded ones to `NativeAdvertisement` views that
 /// share the same ad unit id, instead of every view requesting its own.
-///
-/// Use ``shared`` for the default behavior, or construct one with a ``Configuration`` and apply
-/// it to a view subtree with `View.nativeAdvertisementLoader(_:)`.
 public final class NativeAdvertisementLoader: NSObject {
     public static let shared: NativeAdvertisementLoader = .init(configuration: .default)
 
@@ -27,22 +25,18 @@ public final class NativeAdvertisementLoader: NSObject {
     private var activeAdLoadersByAdUnitId: [String: [AdLoader]] = [:]
     private var receivedAdvertisementCountsByAdLoader: [ObjectIdentifier: Int] = [:]
     private var lastErrorsByAdLoader: [ObjectIdentifier: any Error] = [:]
+    private var memoryWarningCancellable: AnyCancellable?
 
     public init(configuration: Configuration) {
         self.configuration = configuration
 
         super.init()
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleMemoryWarning),
-            name: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil
-        )
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
+        memoryWarningCancellable = NotificationCenter.default
+            .publisher(for: UIApplication.didReceiveMemoryWarningNotification)
+            .sink { [weak self] _ in
+                self?.discardIdleAdvertisements()
+            }
     }
 }
 
@@ -245,8 +239,7 @@ extension NativeAdvertisementLoader: @preconcurrency NativeAdLoaderDelegate {
 }
 
 extension NativeAdvertisementLoader {
-    @objc
-    private func handleMemoryWarning() {
+    private func discardIdleAdvertisements() {
         for adUnitId in entriesByAdUnitId.keys {
             entriesByAdUnitId[adUnitId]?.removeAll { !$0.isLent }
         }
