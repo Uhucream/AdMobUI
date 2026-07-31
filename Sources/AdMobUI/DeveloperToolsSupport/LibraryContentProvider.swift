@@ -27,7 +27,7 @@ struct LibraryContentProvider: DeveloperToolsSupport.LibraryContentProvider {
             NativeAdvertisement(adUnitId: /*@START_MENU_TOKEN@*/"Your Ad Unit ID"/*@END_MENU_TOKEN@*/) { advertisementPhase in
                 switch advertisementPhase {
                 case .empty:
-                    EmptyView()
+                    /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Content while loading@*/EmptyView()/*@END_MENU_TOKEN@*/
 
                 case .success(let loadedAd):
                     VStack(alignment: .leading) {
@@ -41,7 +41,7 @@ struct LibraryContentProvider: DeveloperToolsSupport.LibraryContentProvider {
                     }
 
                 case .failure:
-                    EmptyView()
+                    /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Content when load fails@*/EmptyView()/*@END_MENU_TOKEN@*/
                 }
             },
             title: "Native Advertisement (Full Phase Handling)",
